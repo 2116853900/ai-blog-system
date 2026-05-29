@@ -1,0 +1,40 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ai-blog-backend
+  datasource:
+    url: jdbc:mysql://localhost:3306/ai_blog?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:1234}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+
+# 应用自定义配置
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-this-secret-to-a-long-random-string-at-least-32-bytes-long}
+    expiration-ms: 86400000   # 24h
+  admin:
+    # 启动时若库中无管理员则用此账号创建（首次登录后请尽快修改）
+    default-username: ${ADMIN_USERNAME:admin}
+    default-password: ${ADMIN_PASSWORD:admin123}
+  cors:
+    allowed-origins: http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:5175,http://127.0.0.1:5175
+  status-check:
+    enabled: true
+    # 每 10 分钟探测一次公益 API 站点
+    cron: "0 */10 * * * *"
+    timeout-ms: 8000
+
+logging:
+  level:
+    com.aiblog: INFO
