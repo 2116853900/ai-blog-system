@@ -32,8 +32,14 @@ public class SecurityConfig {
                 // 公开接口
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/posts/**", "/api/skills/**",
-                        "/api/mcps/**", "/api/api-stations/**", "/api/comments/**").permitAll()
+                        "/api/mcps/**", "/api/api-stations/**", "/api/comments/**",
+                        "/api/forum/categories/**", "/api/forum/threads/**",
+                        "/api/users/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/comments", "/api/submissions").permitAll()
+                // 论坛写操作（需登录）
+                .requestMatchers(HttpMethod.POST, "/api/forum/**").hasAnyRole("USER", "MODERATOR", "ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/forum/**").hasAnyRole("USER", "MODERATOR", "ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/forum/**").hasAnyRole("USER", "MODERATOR", "ADMIN")
                 // 后台接口
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()

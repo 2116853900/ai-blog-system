@@ -15,6 +15,7 @@ public class DataSeeder implements CommandLineRunner {
     private final SkillRepository skillRepo;
     private final McpRepository mcpRepo;
     private final ApiStationRepository apiRepo;
+    private final ForumCategoryRepository forumCategoryRepo;
     private final PasswordEncoder encoder;
 
     @Value("${app.admin.default-username}")
@@ -23,12 +24,14 @@ public class DataSeeder implements CommandLineRunner {
     private String adminPassword;
 
     public DataSeeder(AdminUserRepository adminRepo, PostRepository postRepo, SkillRepository skillRepo,
-                      McpRepository mcpRepo, ApiStationRepository apiRepo, PasswordEncoder encoder) {
+                      McpRepository mcpRepo, ApiStationRepository apiRepo,
+                      ForumCategoryRepository forumCategoryRepo, PasswordEncoder encoder) {
         this.adminRepo = adminRepo;
         this.postRepo = postRepo;
         this.skillRepo = skillRepo;
         this.mcpRepo = mcpRepo;
         this.apiRepo = apiRepo;
+        this.forumCategoryRepo = forumCategoryRepo;
         this.encoder = encoder;
     }
 
@@ -39,6 +42,7 @@ public class DataSeeder implements CommandLineRunner {
         seedMcps();
         seedApiStations();
         seedPosts();
+        seedForumCategories();
     }
 
     private void seedAdmin() {
@@ -195,5 +199,46 @@ public class DataSeeder implements CommandLineRunner {
         a.setName(name); a.setBaseUrl(url); a.setDescription(desc);
         a.setSupportedModels(models); a.setTags(tags);
         return a;
+    }
+
+    private void seedForumCategories() {
+        if (forumCategoryRepo.count() > 0) return;
+
+        // 一级板块
+        ForumCategory ai = buildCategory("AI 综合讨论", "ai-general", "AI 相关综合话题讨论", "💬", 1, null);
+        ForumCategory prompt = buildCategory("提示词工程", "prompt-engineering", "Prompt 技巧分享与求助", "✍️", 2, null);
+        ForumCategory dev = buildCategory("AI 开发", "ai-dev", "AI 应用开发技术讨论", "💻", 3, null);
+        ForumCategory tools = buildCategory("工具与资源", "tools-resources", "AI 工具推荐与资源分享", "🔧", 4, null);
+        ForumCategory showcase = buildCategory("项目展示", "showcase", "展示你的 AI 项目和作品", "🚀", 5, null);
+        ForumCategory site = buildCategory("站务", "site-affairs", "站点公告与反馈建议", "📢", 6, null);
+
+        forumCategoryRepo.save(ai);
+        forumCategoryRepo.save(prompt);
+        forumCategoryRepo.save(dev);
+        forumCategoryRepo.save(tools);
+        forumCategoryRepo.save(showcase);
+        forumCategoryRepo.save(site);
+
+        // 二级板块
+        forumCategoryRepo.save(buildCategory("新手问答", "beginner-qa", "入门问题、基础概念", "❓", 1, ai.getId()));
+        forumCategoryRepo.save(buildCategory("行业动态", "industry-news", "新模型发布、论文解读", "📰", 2, ai.getId()));
+        forumCategoryRepo.save(buildCategory("Prompt 分享", "prompt-share", "优质提示词模板分享", "📝", 1, prompt.getId()));
+        forumCategoryRepo.save(buildCategory("Prompt 求助", "prompt-help", "提示词优化请求", "🆘", 2, prompt.getId()));
+        forumCategoryRepo.save(buildCategory("MCP 开发", "mcp-dev", "MCP Server 开发讨论", "🔌", 1, dev.getId()));
+        forumCategoryRepo.save(buildCategory("Agent 开发", "agent-dev", "AI Agent 架构与实践", "🤖", 2, dev.getId()));
+        forumCategoryRepo.save(buildCategory("API 使用", "api-usage", "各家 API 使用经验", "🌐", 3, dev.getId()));
+        forumCategoryRepo.save(buildCategory("工具推荐", "tool-recommend", "AI 工具/插件推荐", "⭐", 1, tools.getId()));
+        forumCategoryRepo.save(buildCategory("资源分享", "resource-share", "教程、数据集、模型分享", "📚", 2, tools.getId()));
+        forumCategoryRepo.save(buildCategory("公告", "announcements", "站点公告（仅管理员发帖）", "📣", 1, site.getId()));
+        forumCategoryRepo.save(buildCategory("反馈建议", "feedback", "对本站的建议", "💡", 2, site.getId()));
+
+        System.out.println(">>> 已初始化论坛板块");
+    }
+
+    private ForumCategory buildCategory(String name, String slug, String desc, String icon, int order, Long parentId) {
+        ForumCategory c = new ForumCategory();
+        c.setName(name); c.setSlug(slug); c.setDescription(desc);
+        c.setIcon(icon); c.setSortOrder(order); c.setParentId(parentId);
+        return c;
     }
 }

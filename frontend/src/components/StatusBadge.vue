@@ -17,8 +17,9 @@ const labels: Record<ApiStatus, string> = {
       'badge-down': status === 'DOWN',
       'badge-unknown': status === 'UNKNOWN'
     }"
+    :title="`状态：${labels[status]}`"
   >
-    <span class="dot"></span>
+    <span class="dot" :class="{ pulse: status === 'UP' }" aria-hidden="true"></span>
     {{ labels[status] }}
     <template v-if="status === 'UP' && latencyMs != null"> · {{ latencyMs }}ms</template>
   </span>
@@ -31,5 +32,18 @@ const labels: Record<ApiStatus, string> = {
   border-radius: 50%;
   background: currentColor;
   display: inline-block;
+  position: relative;
+}
+.dot.pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: currentColor;
+  animation: dot-pulse 1.8s var(--ease) infinite;
+}
+@keyframes dot-pulse {
+  0% { transform: scale(1); opacity: 0.7; }
+  70%, 100% { transform: scale(2.6); opacity: 0; }
 }
 </style>

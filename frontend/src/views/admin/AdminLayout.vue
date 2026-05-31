@@ -11,6 +11,7 @@ const menu = [
   { to: '/admin/skills', label: '✨ Skill' },
   { to: '/admin/mcps', label: '🔌 MCP' },
   { to: '/admin/api-stations', label: '🌐 API 站点' },
+  { to: '/admin/forum-categories', label: '🧩 论坛板块' },
   { to: '/admin/comments', label: '💬 评论审核' },
   { to: '/admin/submissions', label: '📥 投稿审核' }
 ]

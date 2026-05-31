@@ -26,6 +26,7 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+gh-auth-out.txt
 
 # Environment
 .env
@@ -34,3 +35,9 @@ npm-debug.log*
 
 # Claude
 .claude/
+
+# Local agent skill cache
+.agents/
+**/.agents/
+skills-lock.json
+**/skills-lock.json

@@ -23,18 +23,34 @@ public class JwtUtil {
     }
 
     public String generateToken(String username) {
+        return generateToken(null, username, "ADMIN");
+    }
+
+    public String generateToken(Long userId, String username, String role) {
         Date now = new Date();
         Date exp = new Date(now.getTime() + expirationMs);
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(username)
+                .claim("role", role)
                 .issuedAt(now)
-                .expiration(exp)
-                .signWith(key)
-                .compact();
+                .expiration(exp);
+        if (userId != null) {
+            builder.claim("uid", userId);
+        }
+        return builder.signWith(key).compact();
     }
 
     public String extractUsername(String token) {
         return parse(token).getSubject();
+    }
+
+    public String extractRole(String token) {
+        String role = parse(token).get("role", String.class);
+        return role != null ? role : "ADMIN";
+    }
+
+    public Long extractUserId(String token) {
+        return parse(token).get("uid", Long.class);
     }
 
     public boolean isValid(String token) {

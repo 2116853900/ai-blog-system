@@ -2,10 +2,11 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export const useThemeStore = defineStore('theme', () => {
-  const isDark = ref(false)
+  const isDark = ref(true)
 
   function apply() {
-    document.documentElement.classList.toggle('dark', isDark.value)
+    // 深色为默认主题，浅色通过 .light 类覆盖
+    document.documentElement.classList.toggle('light', !isDark.value)
   }
 
   function init() {
@@ -13,7 +14,7 @@ export const useThemeStore = defineStore('theme', () => {
     if (saved) {
       isDark.value = saved === 'dark'
     } else {
-      isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches
+      isDark.value = !window.matchMedia('(prefers-color-scheme: light)').matches
     }
     apply()
   }

@@ -72,3 +72,86 @@ export interface Submission {
   status: SubmissionStatus
   createdAt: string
 }
+
+export type AuthRole = 'USER' | 'MODERATOR' | 'ADMIN'
+
+export interface AuthResponse {
+  token: string
+  username: string
+  role: AuthRole
+  userId?: number
+  nickname?: string
+  message?: string
+}
+
+export interface UserProfile {
+  id?: number
+  username: string
+  nickname?: string
+  avatarUrl?: string
+  bio?: string
+  role: AuthRole
+  level?: number
+  experiencePoints?: number
+  createdAt?: string
+}
+
+export interface ForumCategory {
+  id: number
+  name: string
+  slug: string
+  description?: string
+  icon?: string
+  sortOrder: number
+  parentId?: number | null
+  active: boolean
+  threadCount: number
+  createdAt?: string
+}
+
+export type ThreadStatus = 'NORMAL' | 'PINNED' | 'FEATURED' | 'LOCKED' | 'HIDDEN' | 'DELETED'
+export type ReplyStatus = 'NORMAL' | 'HIDDEN' | 'DELETED'
+
+export interface ForumThread {
+  id: number
+  categoryId: number
+  authorId: number
+  title: string
+  contentMarkdown: string
+  tags?: string
+  status: ThreadStatus
+  viewCount: number
+  replyCount: number
+  likeCount: number
+  favoriteCount: number
+  lastReplyUserId?: number
+  lastReplyAt?: string
+  linkedRefType?: RefType
+  linkedRefId?: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ForumReply {
+  id: number
+  threadId: number
+  authorId: number
+  floorNumber: number
+  contentMarkdown: string
+  replyToId?: number
+  replyToUserId?: number
+  likeCount: number
+  status: ReplyStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Page<T> {
+  content: T[]
+  number: number
+  size: number
+  totalElements: number
+  totalPages: number
+  first: boolean
+  last: boolean
+}

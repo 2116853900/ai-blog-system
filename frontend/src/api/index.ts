@@ -1,7 +1,8 @@
 import http from './http'
 import type {
   Post, Skill, Mcp, ApiStation, Comment, RefType,
-  SubmissionType, Submission
+  SubmissionType, Submission, AuthResponse, UserProfile,
+  ForumCategory, ForumThread, ForumReply, Page
 } from './types'
 
 // ---------- 公开接口 ----------
@@ -31,8 +32,39 @@ export const publicApi = {
 // ---------- 鉴权 ----------
 export const authApi = {
   login: (username: string, password: string) =>
-    http.post<{ token: string; username: string }>('/auth/login', { username, password })
-      .then(r => r.data)
+    http.post<AuthResponse>('/auth/login', { username, password })
+      .then(r => r.data),
+  register: (body: { username: string; email: string; password: string; nickname?: string }) =>
+    http.post<AuthResponse>('/auth/register', body).then(r => r.data),
+  me: () => http.get<UserProfile | { username: string; role: string }>('/auth/me').then(r => r.data),
+  changePassword: (body: { oldPassword: string; newPassword: string }) =>
+    http.put('/auth/password', body).then(r => r.data)
+}
+
+export const forumApi = {
+  categories: () => http.get<ForumCategory[]>('/forum/categories').then(r => r.data),
+  category: (id: number) => http.get<ForumCategory>(`/forum/categories/${id}`).then(r => r.data),
+  threads: (params?: { categoryId?: number; page?: number; size?: number }) =>
+    http.get<Page<ForumThread>>('/forum/threads', { params }).then(r => r.data),
+  thread: (id: number) => http.get<ForumThread>(`/forum/threads/${id}`).then(r => r.data),
+  linkedThreads: (refType: RefType, refId: number) =>
+    http.get<ForumThread[]>('/forum/threads/linked', { params: { refType, refId } }).then(r => r.data),
+  createThread: (body: { categoryId: number; title: string; contentMarkdown: string; tags?: string; linkedRefType?: RefType; linkedRefId?: number }) =>
+    http.post<ForumThread>('/forum/threads', body).then(r => r.data),
+  updateThread: (id: number, body: { categoryId: number; title: string; contentMarkdown: string; tags?: string; linkedRefType?: RefType; linkedRefId?: number }) =>
+    http.put<ForumThread>(`/forum/threads/${id}`, body).then(r => r.data),
+  deleteThread: (id: number) => http.delete(`/forum/threads/${id}`),
+  replies: (threadId: number, params?: { page?: number; size?: number }) =>
+    http.get<Page<ForumReply>>(`/forum/threads/${threadId}/replies`, { params }).then(r => r.data),
+  createReply: (threadId: number, body: { contentMarkdown: string; replyToId?: number }) =>
+    http.post<ForumReply>(`/forum/threads/${threadId}/replies`, body).then(r => r.data),
+  updateReply: (id: number, body: { contentMarkdown: string; replyToId?: number }) =>
+    http.put<ForumReply>(`/forum/replies/${id}`, body).then(r => r.data),
+  deleteReply: (id: number) => http.delete(`/forum/replies/${id}`)
+}
+
+export const userApi = {
+  profile: (id: number) => http.get<UserProfile>(`/users/${id}`).then(r => r.data)
 }
 
 // ---------- 后台接口 ----------
@@ -77,5 +109,11 @@ export const adminApi = {
     http.get<Submission[]>('/admin/submissions', { params: status ? { status } : {} }).then(r => r.data),
   approveSubmission: (id: number) => http.post(`/admin/submissions/${id}/approve`).then(r => r.data),
   rejectSubmission: (id: number) => http.post(`/admin/submissions/${id}/reject`).then(r => r.data),
-  deleteSubmission: (id: number) => http.delete(`/admin/submissions/${id}`)
+  deleteSubmission: (id: number) => http.delete(`/admin/submissions/${id}`),
+
+  // forum categories
+  forumCategories: () => http.get<ForumCategory[]>('/admin/forum-categories').then(r => r.data),
+  createForumCategory: (body: Partial<ForumCategory>) => http.post<ForumCategory>('/admin/forum-categories', body).then(r => r.data),
+  updateForumCategory: (id: number, body: Partial<ForumCategory>) => http.put<ForumCategory>(`/admin/forum-categories/${id}`, body).then(r => r.data),
+  deleteForumCategory: (id: number) => http.delete(`/admin/forum-categories/${id}`)
 }

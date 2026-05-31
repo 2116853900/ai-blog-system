@@ -21,7 +21,11 @@ async function login() {
   err.value = ''
   try {
     const res = await authApi.login(username.value, password.value)
-    auth.setAuth(res.token, res.username)
+    if (res.role !== 'ADMIN') {
+      err.value = '当前账号不是管理员'
+      return
+    }
+    auth.setAuth(res)
     const redirect = (route.query.redirect as string) || '/admin/posts'
     router.push(redirect)
   } catch (e: any) {

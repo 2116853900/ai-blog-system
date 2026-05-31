@@ -9,17 +9,20 @@ function split(tags?: string): string[] {
 </script>
 
 <template>
-  <span>
-    <span
+  <span class="taglist">
+    <button
       v-for="t in split(tags)"
       :key="t"
+      type="button"
       class="tag"
       :class="{ 'tag-active': t === active }"
+      :aria-pressed="t === active"
       @click.stop.prevent="emit('select', t)"
-    >{{ t }}</span>
+    >{{ t }}</button>
   </span>
 </template>
 
 <style scoped>
-.tag-active { background: var(--primary); color: #fff; }
+.taglist { display: inline-flex; flex-wrap: wrap; align-items: center; }
+.tag { font: inherit; font-family: var(--font-mono); }
 </style>
