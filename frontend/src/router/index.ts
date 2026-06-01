@@ -34,6 +34,7 @@ const router = createRouter({
         { path: 'comments', name: 'admin-comments', component: () => import('../views/admin/AdminComments.vue'), meta: { requiresAdmin: true } },
         { path: 'submissions', name: 'admin-submissions', component: () => import('../views/admin/AdminSubmissions.vue'), meta: { requiresAdmin: true } },
         { path: 'users', name: 'admin-users', component: () => import('../views/admin/AdminUsers.vue'), meta: { requiresAdmin: true } },
+        { path: 'reports', name: 'admin-reports', component: () => import('../views/admin/AdminReports.vue'), meta: { requiresAdmin: true } },
         { path: 'forum-posts', name: 'admin-forum-posts', component: () => import('../views/admin/AdminForumPosts.vue'), meta: { requiresAdmin: true } },
         { path: 'forum-replies', name: 'admin-forum-replies', component: () => import('../views/admin/AdminForumReplies.vue'), meta: { requiresAdmin: true } },
         { path: 'forum-categories', name: 'admin-forum-categories', component: () => import('../views/admin/AdminForumCategories.vue'), meta: { requiresAdmin: true } }

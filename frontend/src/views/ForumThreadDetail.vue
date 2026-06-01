@@ -2,7 +2,10 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { forumApi, userApi } from '../api'
-import type { ForumCategory, ForumReply, ForumThread, Page, UserProfile } from '../api/types'
+import type {
+  ForumCategory, ForumInteraction, ForumReply, ForumThread, Page,
+  ReportReasonType, ReportTargetType, UserProfile
+} from '../api/types'
 import MarkdownView from '../components/MarkdownView.vue'
 import StateBlock from '../components/StateBlock.vue'
 import Skeleton from '../components/Skeleton.vue'
@@ -23,6 +26,24 @@ const page = ref(0)
 const error = ref('')
 const replyToId = ref<number | null>(null)
 const form = reactive({ contentMarkdown: '' })
+const interaction = ref<ForumInteraction | null>(null)
+const interactionSaving = ref(false)
+const reportTarget = ref<{ type: ReportTargetType; id: number; label: string } | null>(null)
+const reportSaving = ref(false)
+const reportForm = reactive<{ reasonType: ReportReasonType; reasonText: string }>({
+  reasonType: 'SPAM',
+  reasonText: ''
+})
+
+const reportReasons: Array<{ value: ReportReasonType; label: string }> = [
+  { value: 'SPAM', label: '垃圾广告' },
+  { value: 'ABUSE', label: '辱骂攻击' },
+  { value: 'PORN', label: '色情低俗' },
+  { value: 'POLITICS', label: '敏感内容' },
+  { value: 'ILLEGAL', label: '违法违规' },
+  { value: 'COPYRIGHT', label: '侵权' },
+  { value: 'OTHER', label: '其他' }
+]
 
 const threadId = computed(() => Number(route.params.id))
 const canManageThread = computed(() => {
@@ -77,12 +98,86 @@ async function load() {
     ])
     categories.value = categoryData
     thread.value = threadData
+    interaction.value = await forumApi.interaction(threadId.value)
     await loadProfiles([threadData.authorId, threadData.lastReplyUserId])
     await loadReplies(0)
   } catch (e: any) {
     error.value = e?.response?.data?.message || '帖子不存在或加载失败'
   } finally {
     loading.value = false
+  }
+}
+
+async function toggleLike() {
+  if (!thread.value) return
+  if (!auth.isLoggedIn()) {
+    router.push({ name: 'login', query: { redirect: route.fullPath } })
+    return
+  }
+  interactionSaving.value = true
+  try {
+    interaction.value = interaction.value?.liked
+      ? await forumApi.unlikeThread(thread.value.id)
+      : await forumApi.likeThread(thread.value.id)
+    thread.value.likeCount = interaction.value.likeCount
+  } catch (e: any) {
+    toast.error(e?.response?.data?.message || '操作失败')
+  } finally {
+    interactionSaving.value = false
+  }
+}
+
+async function toggleFavorite() {
+  if (!thread.value) return
+  if (!auth.isLoggedIn()) {
+    router.push({ name: 'login', query: { redirect: route.fullPath } })
+    return
+  }
+  interactionSaving.value = true
+  try {
+    interaction.value = interaction.value?.favorited
+      ? await forumApi.unfavoriteThread(thread.value.id)
+      : await forumApi.favoriteThread(thread.value.id)
+    thread.value.favoriteCount = interaction.value.favoriteCount
+  } catch (e: any) {
+    toast.error(e?.response?.data?.message || '操作失败')
+  } finally {
+    interactionSaving.value = false
+  }
+}
+
+function openReport(type: ReportTargetType, id: number, label: string) {
+  if (!auth.isLoggedIn()) {
+    router.push({ name: 'login', query: { redirect: route.fullPath } })
+    return
+  }
+  reportTarget.value = { type, id, label }
+  reportForm.reasonType = 'SPAM'
+  reportForm.reasonText = ''
+}
+
+function closeReport() {
+  reportTarget.value = null
+  reportForm.reasonType = 'SPAM'
+  reportForm.reasonText = ''
+}
+
+async function submitReport() {
+  if (!reportTarget.value) return
+  reportSaving.value = true
+  try {
+    await forumApi.report({
+      targetType: reportTarget.value.type,
+      targetId: reportTarget.value.id,
+      reasonType: reportForm.reasonType,
+      reasonText: reportForm.reasonText.trim() || undefined
+    })
+    toast.success('举报已提交')
+    closeReport()
+  } catch (e: any) {
+    toast.error(e?.response?.data?.message || '举报失败')
+  } finally {
+    reportSaving.value = false
   }
 }
 
@@ -158,9 +253,16 @@ onMounted(load)
                 {{ authorName(thread.authorId) }} · {{ fmt(thread.createdAt) }} · {{ thread.viewCount }} 浏览 · {{ thread.replyCount }} 回复
               </p>
             </div>
-            <div v-if="canManageThread" class="thread-actions">
-              <RouterLink class="btn btn-sm" :to="`/forum/threads/${thread.id}/edit`">编辑帖子</RouterLink>
-              <button class="btn btn-danger btn-sm" @click="removeThread">删除帖子</button>
+            <div class="thread-actions">
+              <button class="btn btn-sm" :disabled="interactionSaving" @click="toggleLike">
+                {{ interaction?.liked ? '已点赞' : '点赞' }} {{ interaction?.likeCount ?? thread.likeCount }}
+              </button>
+              <button class="btn btn-sm" :disabled="interactionSaving" @click="toggleFavorite">
+                {{ interaction?.favorited ? '已收藏' : '收藏' }} {{ interaction?.favoriteCount ?? thread.favoriteCount }}
+              </button>
+              <button class="btn btn-sm" @click="openReport('POST', thread.id, `帖子「${thread.title}」`)">举报</button>
+              <RouterLink v-if="canManageThread" class="btn btn-sm" :to="`/forum/threads/${thread.id}/edit`">编辑帖子</RouterLink>
+              <button v-if="canManageThread" class="btn btn-danger btn-sm" @click="removeThread">删除帖子</button>
             </div>
           </header>
 
@@ -194,6 +296,7 @@ onMounted(load)
                   <span>{{ authorName(r.authorId) }}</span>
                   <span class="muted">{{ fmt(r.createdAt) }}</span>
                   <button class="btn btn-sm" @click="quoteReply(r)">引用</button>
+                  <button class="btn btn-sm" @click="openReport('REPLY', r.id, `#${r.floorNumber} 回复`)">举报</button>
                   <button
                     v-if="auth.userId === r.authorId || auth.isModerator"
                     class="btn btn-sm btn-danger"
@@ -228,6 +331,22 @@ onMounted(load)
         </section>
       </template>
     </StateBlock>
+
+    <div v-if="reportTarget" class="modal-mask" @click.self="closeReport">
+      <div class="modal card">
+        <h2>举报{{ reportTarget.label }}</h2>
+        <label>举报原因</label>
+        <select v-model="reportForm.reasonType" class="input">
+          <option v-for="reason in reportReasons" :key="reason.value" :value="reason.value">{{ reason.label }}</option>
+        </select>
+        <label>补充说明</label>
+        <textarea v-model="reportForm.reasonText" class="textarea" maxlength="1000" placeholder="可补充具体原因，最多 1000 字"></textarea>
+        <div class="modal-foot">
+          <button class="btn" @click="closeReport">取消</button>
+          <button class="btn btn-primary" :disabled="reportSaving" @click="submitReport">{{ reportSaving ? '提交中…' : '提交举报' }}</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -251,6 +370,11 @@ onMounted(load)
 .reply-form { padding: 22px; margin-top: 24px; }
 .reply-form h2 { margin-top: 0; }
 .form-foot { margin-top: 12px; }
+.modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+.modal { width: min(520px, 100%); max-height: 90vh; overflow-y: auto; padding: 22px; display: flex; flex-direction: column; gap: 10px; }
+.modal h2 { margin: 0 0 4px; font-size: 20px; }
+.modal label { font-size: 13px; font-weight: 600; color: var(--text-soft); }
+.modal-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
 @media (max-width: 640px) {
   .thread-head, .form-foot { flex-direction: column; align-items: stretch; }
   .thread-actions { justify-content: flex-start; }

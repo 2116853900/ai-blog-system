@@ -12,6 +12,7 @@ const menu = [
   { to: '/admin/mcps', label: '🔌 MCP' },
   { to: '/admin/api-stations', label: '🌐 API 站点' },
   { to: '/admin/users', label: '👤 用户管理' },
+  { to: '/admin/reports', label: '🚩 举报审核' },
   { to: '/admin/forum-posts', label: '🛡️ 论坛帖子' },
   { to: '/admin/forum-replies', label: '🧹 论坛回复' },
   { to: '/admin/forum-categories', label: '🧩 论坛板块' },

@@ -514,3 +514,47 @@ SUPER_ADMIN
 1. 补点赞/收藏接口与计数事务。
 2. 补统一举报提交接口和后台审核接口。
 3. 将举报审核通过后的联动隐藏内容、联动封禁用户接入现有治理服务。
+
+## 15. 2026-06-01 互动与举报执行记录
+
+本次在 `forum-interactions-reports` 分支继续补齐互动和举报主链路：
+
+- 新增下一阶段计划文档：`docs/superpowers/plans/2026-06-01-forum-interactions-reports.md`。
+- 新增帖子点赞 / 取消点赞接口：
+  - `GET /api/forum/threads/{threadId}/interaction`
+  - `POST /api/forum/threads/{threadId}/like`
+  - `DELETE /api/forum/threads/{threadId}/like`
+- 新增帖子收藏 / 取消收藏接口：
+  - `POST /api/forum/threads/{threadId}/favorite`
+  - `DELETE /api/forum/threads/{threadId}/favorite`
+- 点赞和收藏操作保持幂等，取消操作不会让计数小于 0。
+- 被封禁用户不能点赞、收藏、举报；已登录但被封禁的用户也不能提交评论。
+- 帖子详情页新增点赞、收藏和举报入口。
+- 新增用户举报提交接口：
+  - `POST /api/reports`
+- 举报提交会保存举报时内容快照，并按目标类型写入：
+  - 帖子标题和正文快照
+  - 回复正文快照
+  - 评论作者和正文快照
+- 举报帖子和回复时会递增对应 `reportCount`。
+- 新增后台举报审核接口：
+  - `GET /api/admin/reports`
+  - `GET /api/admin/reports/{id}`
+  - `POST /api/admin/reports/{id}/approve`
+  - `POST /api/admin/reports/{id}/reject`
+  - `POST /api/admin/reports/{id}/close`
+- 后台举报审核支持按对象类型、原因、状态和时间筛选。
+- 审核通过时支持联动隐藏帖子、回复或评论。
+- 审核通过时支持联动封禁被举报作者。
+- 新增后台举报审核页面 `/admin/reports`，接入列表、筛选、详情、快照展示和审核操作。
+
+验证结果：
+
+- 后端：`mvn -q -DskipTests compile` 通过。
+- 前端：`npm run build` 通过。
+
+下一步建议：
+
+1. 增加接口级测试，覆盖点赞收藏幂等、举报提交、审核联动隐藏和封禁。
+2. 给用户详情补发帖、回复、举报、被举报记录标签页。
+3. 视需要补评论后台隐藏/恢复入口，使评论治理和帖子/回复治理完全一致。

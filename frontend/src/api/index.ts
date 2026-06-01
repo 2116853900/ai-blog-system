@@ -3,7 +3,8 @@ import type {
   Post, Skill, Mcp, ApiStation, Comment, RefType,
   SubmissionType, Submission, AuthResponse, UserProfile,
   ForumCategory, ForumThread, ForumReply, Page, AdminOperationLog,
-  ThreadStatus, ReplyStatus, AdminForumUser, UserStatus
+  ThreadStatus, ReplyStatus, AdminForumUser, UserStatus, ForumInteraction,
+  ContentReport, ReportReasonType, ReportStatus, ReportTargetType
 } from './types'
 
 // ---------- 公开接口 ----------
@@ -63,7 +64,19 @@ export const forumApi = {
     http.post<ForumReply>(`/forum/threads/${threadId}/replies`, body).then(r => r.data),
   updateReply: (id: number, body: { contentMarkdown: string; replyToId?: number }) =>
     http.put<ForumReply>(`/forum/replies/${id}`, body).then(r => r.data),
-  deleteReply: (id: number) => http.delete(`/forum/replies/${id}`)
+  deleteReply: (id: number) => http.delete(`/forum/replies/${id}`),
+  interaction: (threadId: number) =>
+    http.get<ForumInteraction>(`/forum/threads/${threadId}/interaction`).then(r => r.data),
+  likeThread: (threadId: number) =>
+    http.post<ForumInteraction>(`/forum/threads/${threadId}/like`).then(r => r.data),
+  unlikeThread: (threadId: number) =>
+    http.delete<ForumInteraction>(`/forum/threads/${threadId}/like`).then(r => r.data),
+  favoriteThread: (threadId: number) =>
+    http.post<ForumInteraction>(`/forum/threads/${threadId}/favorite`).then(r => r.data),
+  unfavoriteThread: (threadId: number) =>
+    http.delete<ForumInteraction>(`/forum/threads/${threadId}/favorite`).then(r => r.data),
+  report: (body: { targetType: ReportTargetType; targetId: number; reasonType: ReportReasonType; reasonText?: string }) =>
+    http.post<ContentReport>('/reports', body).then(r => r.data)
 }
 
 export const userApi = {
@@ -184,5 +197,23 @@ export const adminApi = {
   banForumUser: (id: number, body: { reason?: string; banEndTime?: string }) =>
     http.post<AdminForumUser>(`/admin/users/${id}/ban`, body).then(r => r.data),
   unbanForumUser: (id: number) =>
-    http.post<AdminForumUser>(`/admin/users/${id}/unban`).then(r => r.data)
+    http.post<AdminForumUser>(`/admin/users/${id}/unban`).then(r => r.data),
+
+  // content reports
+  reports: (params?: {
+    targetType?: ReportTargetType
+    reasonType?: ReportReasonType
+    status?: ReportStatus
+    createdFrom?: string
+    createdTo?: string
+    page?: number
+    size?: number
+  }) => http.get<Page<ContentReport>>('/admin/reports', { params }).then(r => r.data),
+  report: (id: number) => http.get<ContentReport>(`/admin/reports/${id}`).then(r => r.data),
+  approveReport: (id: number, body: { reviewNote?: string; hideContent?: boolean; banTargetAuthor?: boolean; banReason?: string; banEndTime?: string }) =>
+    http.post<ContentReport>(`/admin/reports/${id}/approve`, body).then(r => r.data),
+  rejectReport: (id: number, body: { reviewNote?: string }) =>
+    http.post<ContentReport>(`/admin/reports/${id}/reject`, body).then(r => r.data),
+  closeReport: (id: number, body: { reviewNote?: string }) =>
+    http.post<ContentReport>(`/admin/reports/${id}/close`, body).then(r => r.data)
 }

@@ -169,6 +169,36 @@ export interface ForumReply {
   updatedAt: string
 }
 
+export interface ForumInteraction {
+  liked: boolean
+  favorited: boolean
+  likeCount: number
+  favoriteCount: number
+}
+
+export type ReportTargetType = 'POST' | 'REPLY' | 'COMMENT'
+export type ReportReasonType = 'SPAM' | 'ABUSE' | 'PORN' | 'POLITICS' | 'ILLEGAL' | 'COPYRIGHT' | 'OTHER'
+export type ReportStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CLOSED'
+
+export interface ContentReport {
+  id: number
+  targetType: ReportTargetType
+  targetId: number
+  targetAuthorId?: number
+  reporterId: number
+  reasonType: ReportReasonType
+  reasonText?: string
+  contentSnapshot: string
+  status: ReportStatus
+  reviewerId?: number
+  reviewerUsername?: string
+  reviewResult?: string
+  reviewNote?: string
+  reviewedAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Page<T> {
   content: T[]
   number: number
