@@ -104,6 +104,14 @@ public class ContentReportService {
         return reportRepo.findById(id);
     }
 
+    public Page<ContentReport> submittedByUser(Long userId, Pageable pageable) {
+        return reportRepo.findByReporterIdOrderByCreatedAtDesc(userId, pageable);
+    }
+
+    public Page<ContentReport> receivedByUser(Long userId, Pageable pageable) {
+        return reportRepo.findByTargetAuthorIdOrderByCreatedAtDesc(userId, pageable);
+    }
+
     @Transactional
     public Optional<ContentReport> approve(Long id, ReportReviewRequest req, String reviewerUsername) {
         return review(id, ContentReport.ReportStatus.APPROVED, "APPROVED", req, reviewerUsername)

@@ -50,6 +50,7 @@ export interface ApiStation {
 }
 
 export type RefType = 'POST' | 'SKILL' | 'MCP' | 'API'
+export type CommentStatus = 'NORMAL' | 'HIDDEN' | 'DELETED'
 
 export interface Comment {
   id: number
@@ -58,7 +59,7 @@ export interface Comment {
   author: string
   content: string
   approved: boolean
-  status?: 'NORMAL' | 'HIDDEN' | 'DELETED'
+  status?: CommentStatus
   createdAt: string
 }
 

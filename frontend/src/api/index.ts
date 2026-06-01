@@ -4,7 +4,7 @@ import type {
   SubmissionType, Submission, AuthResponse, UserProfile,
   ForumCategory, ForumThread, ForumReply, Page, AdminOperationLog,
   ThreadStatus, ReplyStatus, AdminForumUser, UserStatus, ForumInteraction,
-  ContentReport, ReportReasonType, ReportStatus, ReportTargetType
+  ContentReport, ReportReasonType, ReportStatus, ReportTargetType, CommentStatus
 } from './types'
 
 // ---------- 公开接口 ----------
@@ -115,9 +115,11 @@ export const adminApi = {
   checkAllApiStations: () => http.post('/admin/api-stations/check-all'),
 
   // comments
-  comments: (pending?: boolean) =>
-    http.get<Comment[]>('/admin/comments', { params: pending ? { pending: true } : {} }).then(r => r.data),
+  comments: (params?: { pending?: boolean; status?: CommentStatus }) =>
+    http.get<Comment[]>('/admin/comments', { params }).then(r => r.data),
   approveComment: (id: number) => http.post(`/admin/comments/${id}/approve`).then(r => r.data),
+  hideComment: (id: number) => http.post<Comment>(`/admin/comments/${id}/hide`).then(r => r.data),
+  restoreComment: (id: number) => http.post<Comment>(`/admin/comments/${id}/restore`).then(r => r.data),
   deleteComment: (id: number) => http.delete(`/admin/comments/${id}`),
 
   // submissions
@@ -194,6 +196,14 @@ export const adminApi = {
   }) => http.get<Page<AdminForumUser>>('/admin/users', { params }).then(r => r.data),
   forumUser: (id: number) => http.get<AdminForumUser>(`/admin/users/${id}`).then(r => r.data),
   forumUserLogs: (id: number) => http.get<AdminOperationLog[]>(`/admin/users/${id}/operation-logs`).then(r => r.data),
+  forumUserThreads: (id: number, params?: { page?: number; size?: number }) =>
+    http.get<Page<ForumThread>>(`/admin/users/${id}/threads`, { params }).then(r => r.data),
+  forumUserReplies: (id: number, params?: { page?: number; size?: number }) =>
+    http.get<Page<ForumReply>>(`/admin/users/${id}/replies`, { params }).then(r => r.data),
+  forumUserReports: (id: number, params?: { page?: number; size?: number }) =>
+    http.get<Page<ContentReport>>(`/admin/users/${id}/reports`, { params }).then(r => r.data),
+  forumUserReported: (id: number, params?: { page?: number; size?: number }) =>
+    http.get<Page<ContentReport>>(`/admin/users/${id}/reported`, { params }).then(r => r.data),
   banForumUser: (id: number, body: { reason?: string; banEndTime?: string }) =>
     http.post<AdminForumUser>(`/admin/users/${id}/ban`, body).then(r => r.data),
   unbanForumUser: (id: number) =>

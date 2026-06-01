@@ -10,4 +10,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
             Long refId,
             Comment.CommentStatus status);
     List<Comment> findByApprovedFalseOrderByCreatedAtDesc();
+    List<Comment> findByApprovedFalseAndStatusOrderByCreatedAtDesc(Comment.CommentStatus status);
+    List<Comment> findByStatusOrderByCreatedAtDesc(Comment.CommentStatus status);
+    List<Comment> findAllByOrderByCreatedAtDesc();
 }

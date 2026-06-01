@@ -558,3 +558,34 @@ SUPER_ADMIN
 1. 增加接口级测试，覆盖点赞收藏幂等、举报提交、审核联动隐藏和封禁。
 2. 给用户详情补发帖、回复、举报、被举报记录标签页。
 3. 视需要补评论后台隐藏/恢复入口，使评论治理和帖子/回复治理完全一致。
+
+## 16. 2026-06-01 用户历史与评论治理执行记录
+
+本次在 `forum-interactions-reports` 分支继续补齐后台治理视图：
+
+- 新增下一阶段计划文档：`docs/superpowers/plans/2026-06-01-user-history-comment-governance.md`。
+- 后台用户详情新增内容和举报历史接口：
+  - `GET /api/admin/users/{id}/threads`
+  - `GET /api/admin/users/{id}/replies`
+  - `GET /api/admin/users/{id}/reports`
+  - `GET /api/admin/users/{id}/reported`
+- 用户详情弹窗新增标签页：
+  - 概览
+  - 发帖
+  - 回复
+  - 提交举报
+  - 被举报
+- 用户详情历史标签页按需懒加载，并分别保留分页状态。
+- 后台普通评论治理从硬删除调整为软删除，保留内容记录。
+- 后台评论列表支持按审核状态和内容状态组合筛选。
+- 新增后台评论治理接口：
+  - `POST /api/admin/comments/{id}/hide`
+  - `POST /api/admin/comments/{id}/restore`
+  - `DELETE /api/admin/comments/{id}`，现在写入 `DELETED` 状态而不是物理删除。
+- 评论通过、隐藏、恢复、软删除都会写入管理员操作日志，目标类型为 `COMMENT`。
+- 后台评论审核页面新增正常、已隐藏、已删除状态展示和对应操作按钮。
+
+验证结果：
+
+- 后端：`mvn -q -DskipTests compile` 通过。
+- 前端：`npm run build` 通过。

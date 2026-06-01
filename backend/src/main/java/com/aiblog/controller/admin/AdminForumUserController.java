@@ -3,7 +3,13 @@ package com.aiblog.controller.admin;
 import com.aiblog.dto.AdminForumUserResponse;
 import com.aiblog.dto.AdminUserBanRequest;
 import com.aiblog.entity.AdminOperationLog;
+import com.aiblog.entity.ContentReport;
+import com.aiblog.entity.ForumReply;
+import com.aiblog.entity.ForumThread;
 import com.aiblog.entity.ForumUser;
+import com.aiblog.service.ContentReportService;
+import com.aiblog.service.ForumReplyService;
+import com.aiblog.service.ForumThreadService;
 import com.aiblog.service.ForumUserService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -20,9 +26,18 @@ import java.util.List;
 public class AdminForumUserController {
 
     private final ForumUserService userService;
+    private final ForumThreadService threadService;
+    private final ForumReplyService replyService;
+    private final ContentReportService reportService;
 
-    public AdminForumUserController(ForumUserService userService) {
+    public AdminForumUserController(ForumUserService userService,
+                                    ForumThreadService threadService,
+                                    ForumReplyService replyService,
+                                    ContentReportService reportService) {
         this.userService = userService;
+        this.threadService = threadService;
+        this.replyService = replyService;
+        this.reportService = reportService;
     }
 
     @GetMapping
@@ -49,6 +64,40 @@ public class AdminForumUserController {
     @GetMapping("/{id}/operation-logs")
     public List<AdminOperationLog> operationLogs(@PathVariable Long id) {
         return userService.adminOperationLogs(id);
+    }
+
+    @GetMapping("/{id}/threads")
+    public Page<ForumThread> threads(@PathVariable Long id,
+                                     @RequestParam(defaultValue = "0") int page,
+                                     @RequestParam(defaultValue = "10") int size) {
+        var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<ForumThread> result = threadService.adminSearch(null, null, id, null, null, null, null, pageable);
+        result.getContent().forEach(t -> t.setContentMarkdown(null));
+        return result;
+    }
+
+    @GetMapping("/{id}/replies")
+    public Page<ForumReply> replies(@PathVariable Long id,
+                                    @RequestParam(defaultValue = "0") int page,
+                                    @RequestParam(defaultValue = "10") int size) {
+        var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return replyService.adminSearch(null, null, id, null, null, null, null, pageable);
+    }
+
+    @GetMapping("/{id}/reports")
+    public Page<ContentReport> reports(@PathVariable Long id,
+                                       @RequestParam(defaultValue = "0") int page,
+                                       @RequestParam(defaultValue = "10") int size) {
+        var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return reportService.submittedByUser(id, pageable);
+    }
+
+    @GetMapping("/{id}/reported")
+    public Page<ContentReport> reported(@PathVariable Long id,
+                                        @RequestParam(defaultValue = "0") int page,
+                                        @RequestParam(defaultValue = "10") int size) {
+        var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return reportService.receivedByUser(id, pageable);
     }
 
     @PostMapping("/{id}/ban")
