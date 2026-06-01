@@ -5,6 +5,7 @@ import { publicApi } from '../api'
 import type { ApiStation } from '../api/types'
 import CommentSection from '../components/CommentSection.vue'
 import CopyButton from '../components/CopyButton.vue'
+import LinkedDiscussions from '../components/LinkedDiscussions.vue'
 import Skeleton from '../components/Skeleton.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import TagList from '../components/TagList.vue'
@@ -83,6 +84,9 @@ watch(() => route.params.id, load)
       </div>
 
       <TagList :tags="station.tags" />
+
+      <hr class="sep" />
+      <LinkedDiscussions ref-type="API" :ref-id="station.id" :source-title="station.name" />
 
       <hr class="sep" />
       <CommentSection ref-type="API" :ref-id="station.id" />

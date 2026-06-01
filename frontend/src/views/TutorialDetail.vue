@@ -5,6 +5,7 @@ import { publicApi } from '../api'
 import type { Post } from '../api/types'
 import MarkdownView from '../components/MarkdownView.vue'
 import CommentSection from '../components/CommentSection.vue'
+import LinkedDiscussions from '../components/LinkedDiscussions.vue'
 import Skeleton from '../components/Skeleton.vue'
 
 const route = useRoute()
@@ -59,6 +60,9 @@ watch(() => route.params.slug, load)
       </header>
 
       <MarkdownView class="markdown-body" :source="post.bodyMarkdown" />
+
+      <hr class="sep" />
+      <LinkedDiscussions ref-type="POST" :ref-id="post.id" :source-title="post.title" />
 
       <hr class="sep" />
       <CommentSection ref-type="POST" :ref-id="post.id" />

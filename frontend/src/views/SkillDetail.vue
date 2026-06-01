@@ -4,6 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import { publicApi } from '../api'
 import type { Skill } from '../api/types'
 import CommentSection from '../components/CommentSection.vue'
+import LinkedDiscussions from '../components/LinkedDiscussions.vue'
 import Skeleton from '../components/Skeleton.vue'
 import StarRating from '../components/StarRating.vue'
 import TagList from '../components/TagList.vue'
@@ -61,6 +62,9 @@ watch(() => route.params.id, load)
       <a v-if="skill.link" :href="skill.link" target="_blank" rel="noopener" class="btn btn-primary action">
         访问 Skill ↗
       </a>
+
+      <hr class="sep" />
+      <LinkedDiscussions ref-type="SKILL" :ref-id="skill.id" :source-title="skill.name" />
 
       <hr class="sep" />
       <CommentSection ref-type="SKILL" :ref-id="skill.id" />
