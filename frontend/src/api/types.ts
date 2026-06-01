@@ -58,6 +58,7 @@ export interface Comment {
   author: string
   content: string
   approved: boolean
+  status?: 'NORMAL' | 'HIDDEN' | 'DELETED'
   createdAt: string
 }
 
@@ -74,6 +75,7 @@ export interface Submission {
 }
 
 export type AuthRole = 'USER' | 'MODERATOR' | 'ADMIN'
+export type UserStatus = 'ACTIVE' | 'BANNED' | 'INACTIVE'
 
 export interface AuthResponse {
   token: string
@@ -94,6 +96,25 @@ export interface UserProfile {
   level?: number
   experiencePoints?: number
   createdAt?: string
+}
+
+export interface AdminForumUser {
+  id: number
+  username: string
+  email: string
+  nickname?: string
+  avatarUrl?: string
+  bio?: string
+  role: AuthRole
+  status: UserStatus
+  banReason?: string
+  banStartTime?: string
+  banEndTime?: string
+  banOperatorUsername?: string
+  level: number
+  experiencePoints: number
+  createdAt: string
+  lastLoginAt?: string
 }
 
 export interface ForumCategory {
@@ -124,6 +145,7 @@ export interface ForumThread {
   replyCount: number
   likeCount: number
   favoriteCount: number
+  reportCount: number
   lastReplyUserId?: number
   lastReplyAt?: string
   linkedRefType?: RefType
@@ -141,6 +163,7 @@ export interface ForumReply {
   replyToId?: number
   replyToUserId?: number
   likeCount: number
+  reportCount: number
   status: ReplyStatus
   createdAt: string
   updatedAt: string
@@ -154,4 +177,14 @@ export interface Page<T> {
   totalPages: number
   first: boolean
   last: boolean
+}
+
+export interface AdminOperationLog {
+  id: number
+  operatorUsername: string
+  action: string
+  targetType: string
+  targetId: number
+  detail?: string
+  createdAt: string
 }

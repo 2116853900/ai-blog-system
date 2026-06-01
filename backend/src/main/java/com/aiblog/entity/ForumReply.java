@@ -37,6 +37,9 @@ public class ForumReply {
     @Column(nullable = false)
     private int likeCount = 0;
 
+    @Column(nullable = false, columnDefinition = "int default 0")
+    private int reportCount = 0;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ReplyStatus status = ReplyStatus.NORMAL;
@@ -75,6 +78,9 @@ public class ForumReply {
 
     public int getLikeCount() { return likeCount; }
     public void setLikeCount(int likeCount) { this.likeCount = likeCount; }
+
+    public int getReportCount() { return reportCount; }
+    public void setReportCount(int reportCount) { this.reportCount = reportCount; }
 
     public ReplyStatus getStatus() { return status; }
     public void setStatus(ReplyStatus status) { this.status = status; }

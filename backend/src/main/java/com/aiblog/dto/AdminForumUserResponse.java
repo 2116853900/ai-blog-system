@@ -1,70 +1,46 @@
-package com.aiblog.entity;
+package com.aiblog.dto;
 
-import jakarta.persistence.*;
+import com.aiblog.entity.ForumUser;
 import java.time.Instant;
 
-@Entity
-@Table(name = "forum_user")
-public class ForumUser {
-
-    public enum Role { USER, MODERATOR, ADMIN }
-    public enum Status { ACTIVE, BANNED, INACTIVE }
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class AdminForumUserResponse {
     private Long id;
-
-    @Column(nullable = false, unique = true, length = 30)
     private String username;
-
-    @Column(nullable = false, unique = true, length = 100)
     private String email;
-
-    @Column(nullable = false)
-    private String passwordHash;
-
-    @Column(length = 50)
     private String nickname;
-
-    @Column(length = 500)
     private String avatarUrl;
-
-    @Column(length = 500)
     private String bio;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Role role = Role.USER;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Status status = Status.ACTIVE;
-
-    @Column(length = 500)
+    private ForumUser.Role role;
+    private ForumUser.Status status;
     private String banReason;
-
     private Instant banStartTime;
-
     private Instant banEndTime;
-
-    @Column(length = 100)
     private String banOperatorUsername;
-
-    @Column(nullable = false)
-    private boolean emailVerified = false;
-
-    @Column(nullable = false)
-    private int experiencePoints = 0;
-
-    @Column(nullable = false)
-    private int level = 1;
-
-    @Column(nullable = false)
-    private Instant createdAt = Instant.now();
-
+    private int experiencePoints;
+    private int level;
+    private Instant createdAt;
     private Instant lastLoginAt;
 
-    // --- Getters & Setters ---
+    public static AdminForumUserResponse from(ForumUser user) {
+        AdminForumUserResponse r = new AdminForumUserResponse();
+        r.setId(user.getId());
+        r.setUsername(user.getUsername());
+        r.setEmail(user.getEmail());
+        r.setNickname(user.getNickname());
+        r.setAvatarUrl(user.getAvatarUrl());
+        r.setBio(user.getBio());
+        r.setRole(user.getRole());
+        r.setStatus(user.getStatus());
+        r.setBanReason(user.getBanReason());
+        r.setBanStartTime(user.getBanStartTime());
+        r.setBanEndTime(user.getBanEndTime());
+        r.setBanOperatorUsername(user.getBanOperatorUsername());
+        r.setExperiencePoints(user.getExperiencePoints());
+        r.setLevel(user.getLevel());
+        r.setCreatedAt(user.getCreatedAt());
+        r.setLastLoginAt(user.getLastLoginAt());
+        return r;
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -75,9 +51,6 @@ public class ForumUser {
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
 
-    public String getPasswordHash() { return passwordHash; }
-    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
-
     public String getNickname() { return nickname; }
     public void setNickname(String nickname) { this.nickname = nickname; }
 
@@ -87,11 +60,11 @@ public class ForumUser {
     public String getBio() { return bio; }
     public void setBio(String bio) { this.bio = bio; }
 
-    public Role getRole() { return role; }
-    public void setRole(Role role) { this.role = role; }
+    public ForumUser.Role getRole() { return role; }
+    public void setRole(ForumUser.Role role) { this.role = role; }
 
-    public Status getStatus() { return status; }
-    public void setStatus(Status status) { this.status = status; }
+    public ForumUser.Status getStatus() { return status; }
+    public void setStatus(ForumUser.Status status) { this.status = status; }
 
     public String getBanReason() { return banReason; }
     public void setBanReason(String banReason) { this.banReason = banReason; }
@@ -104,9 +77,6 @@ public class ForumUser {
 
     public String getBanOperatorUsername() { return banOperatorUsername; }
     public void setBanOperatorUsername(String banOperatorUsername) { this.banOperatorUsername = banOperatorUsername; }
-
-    public boolean isEmailVerified() { return emailVerified; }
-    public void setEmailVerified(boolean emailVerified) { this.emailVerified = emailVerified; }
 
     public int getExperiencePoints() { return experiencePoints; }
     public void setExperiencePoints(int experiencePoints) { this.experiencePoints = experiencePoints; }

@@ -44,6 +44,9 @@ public class ForumReplyController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("message", "请先登录"));
         }
+        if (!userService.isActiveForumUser(userId)) {
+            return ResponseEntity.status(403).body(Map.of("message", "账号已被封禁，暂不能回复"));
+        }
         try {
             ForumReply reply = replyService.create(threadId, req, userId);
             return ResponseEntity.ok(reply);
@@ -59,6 +62,9 @@ public class ForumReplyController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("message", "请先登录"));
         }
+        if (!userService.isActiveForumUser(userId)) {
+            return ResponseEntity.status(403).body(Map.of("message", "账号已被封禁，暂不能编辑回复"));
+        }
         return replyService.update(id, req, userId)
                 .map(r -> ResponseEntity.ok((Object) r))
                 .orElse(ResponseEntity.status(403).body(Map.of("message", "无权编辑此回复")));
@@ -68,8 +74,10 @@ public class ForumReplyController {
     @DeleteMapping("/replies/{id}")
     public ResponseEntity<?> delete(@PathVariable Long id, Authentication auth) {
         Long userId = resolveUserId(auth);
-        boolean isAdmin = auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_MODERATOR"));
+        boolean isAdmin = hasModerationRole(auth);
+        if (userId != null && !userService.isActiveForumUser(userId)) {
+            return ResponseEntity.status(403).body(Map.of("message", "账号已被封禁，暂不能删除回复"));
+        }
         if (replyService.delete(id, userId, isAdmin)) {
             return ResponseEntity.noContent().build();
         }
@@ -80,5 +88,10 @@ public class ForumReplyController {
         if (auth == null) return null;
         String username = auth.getName();
         return userService.findByUsername(username).map(u -> u.getId()).orElse(null);
+    }
+
+    private boolean hasModerationRole(Authentication auth) {
+        return auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_MODERATOR"));
     }
 }

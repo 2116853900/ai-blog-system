@@ -41,9 +41,10 @@
 | GET  | `/api/comments?type=&refId=` | 某内容下已审核评论 |
 | POST | `/api/comments` | 提交评论（待审核）|
 | POST | `/api/submissions` | 投稿（待审核）|
-| GET/POST/PUT/DELETE | `/api/forum/**` | 论坛板块、帖子、回复 |
+| GET/POST/PUT/DELETE | `/api/forum/**` | 论坛板块、帖子、回复；帖子列表支持 `q` 关键词搜索 |
 | POST | `/api/auth/register` | 论坛用户注册 |
 | GET  | `/api/auth/me` | 当前登录用户信息 |
+| PUT  | `/api/auth/profile` | 修改论坛用户昵称、头像和简介 |
 | PUT  | `/api/auth/password` | 修改论坛用户密码 |
 | POST | `/api/auth/login` | 管理员登录，返回 JWT |
 | *    | `/api/admin/**` | 后台接口（需 `Authorization: Bearer <token>`）|

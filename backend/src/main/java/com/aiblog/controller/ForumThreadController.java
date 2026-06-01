@@ -31,12 +31,13 @@ public class ForumThreadController {
     @GetMapping
     public Page<ForumThread> list(
             @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         var pageable = PageRequest.of(page, size,
                 Sort.by(Sort.Direction.DESC, "lastReplyAt").and(Sort.by(Sort.Direction.DESC, "createdAt")));
-        if (categoryId != null) {
-            return threadService.listByCategory(categoryId, pageable);
+        if (categoryId != null || (q != null && !q.isBlank())) {
+            return threadService.search(categoryId, q, pageable);
         }
         return threadService.listAll(pageable);
     }
@@ -65,6 +66,9 @@ public class ForumThreadController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("message", "请先登录"));
         }
+        if (!userService.isActiveForumUser(userId)) {
+            return ResponseEntity.status(403).body(Map.of("message", "账号已被封禁，暂不能发帖"));
+        }
         ForumThread thread = threadService.create(req, userId);
         return ResponseEntity.ok(thread);
     }
@@ -73,10 +77,14 @@ public class ForumThreadController {
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable Long id, @Valid @RequestBody ThreadRequest req, Authentication auth) {
         Long userId = resolveUserId(auth);
-        if (userId == null) {
+        boolean canModerate = hasModerationRole(auth);
+        if (userId == null && !canModerate) {
             return ResponseEntity.status(401).body(Map.of("message", "请先登录"));
         }
-        return threadService.update(id, req, userId)
+        if (userId != null && !userService.isActiveForumUser(userId)) {
+            return ResponseEntity.status(403).body(Map.of("message", "账号已被封禁，暂不能编辑帖子"));
+        }
+        return threadService.update(id, req, userId, canModerate)
                 .map(t -> ResponseEntity.ok((Object) t))
                 .orElse(ResponseEntity.status(403).body(Map.of("message", "无权编辑此帖子")));
     }
@@ -85,8 +93,10 @@ public class ForumThreadController {
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable Long id, Authentication auth) {
         Long userId = resolveUserId(auth);
-        boolean isAdmin = auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_MODERATOR"));
+        boolean isAdmin = hasModerationRole(auth);
+        if (userId != null && !userService.isActiveForumUser(userId)) {
+            return ResponseEntity.status(403).body(Map.of("message", "账号已被封禁，暂不能删除帖子"));
+        }
         if (threadService.delete(id, userId, isAdmin)) {
             return ResponseEntity.noContent().build();
         }
@@ -97,5 +107,10 @@ public class ForumThreadController {
         if (auth == null) return null;
         String username = auth.getName();
         return userService.findByUsername(username).map(u -> u.getId()).orElse(null);
+    }
+
+    private boolean hasModerationRole(Authentication auth) {
+        return auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_MODERATOR"));
     }
 }

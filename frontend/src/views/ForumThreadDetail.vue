@@ -158,7 +158,10 @@ onMounted(load)
                 {{ authorName(thread.authorId) }} · {{ fmt(thread.createdAt) }} · {{ thread.viewCount }} 浏览 · {{ thread.replyCount }} 回复
               </p>
             </div>
-            <button v-if="canManageThread" class="btn btn-danger btn-sm" @click="removeThread">删除帖子</button>
+            <div v-if="canManageThread" class="thread-actions">
+              <RouterLink class="btn btn-sm" :to="`/forum/threads/${thread.id}/edit`">编辑帖子</RouterLink>
+              <button class="btn btn-danger btn-sm" @click="removeThread">删除帖子</button>
+            </div>
           </header>
 
           <div v-if="tagsOf(thread.tags).length" class="tags">
@@ -233,6 +236,7 @@ onMounted(load)
 .detail-state { margin-top: 16px; }
 .thread-card { padding: 26px; margin-top: 14px; }
 .thread-head { display: flex; justify-content: space-between; gap: 18px; align-items: start; margin-bottom: 18px; }
+.thread-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .thread-head h1 { margin: 10px 0 6px; font-size: clamp(26px, 4vw, 40px); line-height: 1.25; }
 .thread-meta { display: flex; gap: 8px; flex-wrap: wrap; }
 .small { font-size: 12px; }
@@ -249,6 +253,7 @@ onMounted(load)
 .form-foot { margin-top: 12px; }
 @media (max-width: 640px) {
   .thread-head, .form-foot { flex-direction: column; align-items: stretch; }
+  .thread-actions { justify-content: flex-start; }
   .reply-info { flex-wrap: wrap; }
   .reply-info .btn { margin-left: 0; }
 }

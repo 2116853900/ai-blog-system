@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { forumApi, userApi } from '../api'
 import type { ForumCategory, ForumThread, Page, UserProfile } from '../api/types'
+import SearchBar from '../components/SearchBar.vue'
 import StateBlock from '../components/StateBlock.vue'
 import Skeleton from '../components/Skeleton.vue'
 import { useAuthStore } from '../stores/auth'
@@ -18,6 +19,7 @@ const page = ref(0)
 const selectedCategoryId = ref<number | undefined>(
   route.query.categoryId ? Number(route.query.categoryId) : undefined
 )
+const q = ref(typeof route.query.q === 'string' ? route.query.q : '')
 
 const parents = computed(() => categories.value.filter(c => !c.parentId))
 
@@ -56,6 +58,7 @@ async function loadThreads(nextPage = page.value) {
   try {
     threads.value = await forumApi.threads({
       categoryId: selectedCategoryId.value,
+      q: q.value.trim() || undefined,
       page: page.value,
       size: 20
     })
@@ -68,7 +71,20 @@ async function loadThreads(nextPage = page.value) {
 async function selectCategory(id?: number) {
   selectedCategoryId.value = id
   page.value = 0
-  await router.replace({ query: id ? { categoryId: String(id) } : {} })
+  await syncQuery()
+  await loadThreads(0)
+}
+
+async function syncQuery() {
+  const query: Record<string, string> = {}
+  if (selectedCategoryId.value) query.categoryId = String(selectedCategoryId.value)
+  if (q.value.trim()) query.q = q.value.trim()
+  await router.replace({ query })
+}
+
+async function searchThreads() {
+  page.value = 0
+  await syncQuery()
   await loadThreads(0)
 }
 
@@ -121,11 +137,14 @@ onMounted(async () => {
 
       <main class="threads">
         <div class="thread-head">
-          <h2>{{ selectedCategoryId ? categoryName(selectedCategoryId) : '全部讨论' }}</h2>
-          <span class="muted mono">{{ threads?.totalElements || 0 }} threads</span>
+          <div>
+            <h2>{{ selectedCategoryId ? categoryName(selectedCategoryId) : '全部讨论' }}</h2>
+            <span class="muted mono">{{ threads?.totalElements || 0 }} threads</span>
+          </div>
+          <SearchBar v-model="q" placeholder="搜索标题、正文或标签" @search="searchThreads" />
         </div>
 
-        <StateBlock :loading="loading" :empty="!threads?.content.length" empty-text="暂无帖子，来发布第一条讨论吧。">
+        <StateBlock :loading="loading" :empty="!threads?.content.length" :empty-text="q ? '没有匹配的讨论。' : '暂无帖子，来发布第一条讨论吧。'">
           <template #skeleton>
             <div class="thread-list">
               <div v-for="i in 5" :key="i" class="card thread-card">
@@ -204,7 +223,7 @@ onMounted(async () => {
 .cat-parent small, .cat-child small { margin-left: auto; color: var(--text-dim); }
 .cat-all:hover, .cat-parent:hover, .cat-child:hover,
 .cat-all.active, .cat-parent.active, .cat-child.active { background: var(--primary-soft); color: var(--primary); }
-.thread-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.thread-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 360px); gap: 14px; align-items: center; margin-bottom: 12px; }
 .thread-head h2 { margin: 0; }
 .thread-list { display: flex; flex-direction: column; gap: 12px; }
 .thread-card { padding: 18px; color: var(--text); display: flex; justify-content: space-between; gap: 20px; }
@@ -221,6 +240,7 @@ onMounted(async () => {
 }
 @media (max-width: 640px) {
   .forum-hero, .thread-card { flex-direction: column; align-items: stretch; }
+  .thread-head { grid-template-columns: 1fr; }
   .stats { text-align: left; flex-direction: row; flex-wrap: wrap; }
 }
 </style>

@@ -5,6 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface CommentRepository extends JpaRepository<Comment, Long> {
-    List<Comment> findByRefTypeAndRefIdAndApprovedTrueOrderByCreatedAtDesc(Comment.RefType refType, Long refId);
+    List<Comment> findByRefTypeAndRefIdAndApprovedTrueAndStatusOrderByCreatedAtDesc(
+            Comment.RefType refType,
+            Long refId,
+            Comment.CommentStatus status);
     List<Comment> findByApprovedFalseOrderByCreatedAtDesc();
 }

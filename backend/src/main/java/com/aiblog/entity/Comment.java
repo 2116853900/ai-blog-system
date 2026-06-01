@@ -8,6 +8,7 @@ import java.time.Instant;
 public class Comment {
     /** 评论所属内容类型 */
     public enum RefType { POST, SKILL, MCP, API }
+    public enum CommentStatus { NORMAL, HIDDEN, DELETED }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,6 +31,10 @@ public class Comment {
     @Column(nullable = false)
     private boolean approved = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, columnDefinition = "varchar(20) default 'NORMAL'")
+    private CommentStatus status = CommentStatus.NORMAL;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -45,6 +50,8 @@ public class Comment {
     public void setContent(String content) { this.content = content; }
     public boolean isApproved() { return approved; }
     public void setApproved(boolean approved) { this.approved = approved; }
+    public CommentStatus getStatus() { return status; }
+    public void setStatus(CommentStatus status) { this.status = status; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

@@ -23,7 +23,8 @@ public class CommentController {
     /** 获取某条内容下已审核通过的评论 */
     @GetMapping
     public List<Comment> list(@RequestParam Comment.RefType type, @RequestParam Long refId) {
-        return repo.findByRefTypeAndRefIdAndApprovedTrueOrderByCreatedAtDesc(type, refId);
+        return repo.findByRefTypeAndRefIdAndApprovedTrueAndStatusOrderByCreatedAtDesc(
+                type, refId, Comment.CommentStatus.NORMAL);
     }
 
     /** 访客提交评论（进入待审核） */

@@ -48,6 +48,9 @@ public class ForumThread {
     @Column(nullable = false)
     private int favoriteCount = 0;
 
+    @Column(nullable = false, columnDefinition = "int default 0")
+    private int reportCount = 0;
+
     private Long lastReplyUserId;
 
     private Instant lastReplyAt;
@@ -101,6 +104,9 @@ public class ForumThread {
 
     public int getFavoriteCount() { return favoriteCount; }
     public void setFavoriteCount(int favoriteCount) { this.favoriteCount = favoriteCount; }
+
+    public int getReportCount() { return reportCount; }
+    public void setReportCount(int reportCount) { this.reportCount = reportCount; }
 
     public Long getLastReplyUserId() { return lastReplyUserId; }
     public void setLastReplyUserId(Long lastReplyUserId) { this.lastReplyUserId = lastReplyUserId; }

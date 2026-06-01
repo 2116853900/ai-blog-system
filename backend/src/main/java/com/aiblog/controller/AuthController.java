@@ -2,6 +2,7 @@ package com.aiblog.controller;
 
 import com.aiblog.dto.LoginRequest;
 import com.aiblog.dto.LoginResponse;
+import com.aiblog.dto.ProfileUpdateRequest;
 import com.aiblog.dto.RegisterRequest;
 import com.aiblog.dto.UserProfileResponse;
 import com.aiblog.entity.ForumUser;
@@ -97,6 +98,17 @@ public class AuthController {
                         "role", "ADMIN"
                 )))
                 .orElse(ResponseEntity.status(401).body(Map.of("message", "用户不存在")));
+    }
+
+    /** 更新论坛用户资料 */
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateProfile(Authentication auth, @Valid @RequestBody ProfileUpdateRequest req) {
+        if (auth == null) {
+            return ResponseEntity.status(401).body(Map.of("message", "未登录"));
+        }
+        return userService.findByUsername(auth.getName())
+                .<ResponseEntity<?>>map(u -> ResponseEntity.ok(UserProfileResponse.from(userService.updateProfile(u, req))))
+                .orElse(ResponseEntity.badRequest().body(Map.of("message", "仅论坛用户可编辑资料")));
     }
 
     /** 修改密码 */

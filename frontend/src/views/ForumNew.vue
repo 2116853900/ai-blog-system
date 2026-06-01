@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { forumApi } from '../api'
-import type { ForumCategory } from '../api/types'
+import type { ForumCategory, ForumThread } from '../api/types'
 import MarkdownView from '../components/MarkdownView.vue'
 import { toast } from '../composables/useToast'
 
+const route = useRoute()
 const router = useRouter()
 const categories = ref<ForumCategory[]>([])
+const originalThread = ref<ForumThread | null>(null)
+const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
 const form = reactive({
@@ -16,6 +19,9 @@ const form = reactive({
   tags: '',
   contentMarkdown: ''
 })
+
+const isEdit = computed(() => route.name === 'forum-thread-edit')
+const threadId = computed(() => Number(route.params.id))
 
 const selectableCategories = computed(() =>
   categories.value.filter(c => c.active).sort((a, b) => (a.parentId || 0) - (b.parentId || 0) || a.sortOrder - b.sortOrder)
@@ -38,24 +44,42 @@ async function submit() {
   }
   saving.value = true
   try {
-    const thread = await forumApi.createThread({
+    const body = {
       categoryId: form.categoryId,
       title: form.title.trim(),
       tags: form.tags.trim() || undefined,
       contentMarkdown: form.contentMarkdown.trim()
-    })
-    toast.success('帖子已发布')
+    }
+    const thread = isEdit.value
+      ? await forumApi.updateThread(threadId.value, body)
+      : await forumApi.createThread(body)
+    toast.success(isEdit.value ? '帖子已更新' : '帖子已发布')
     router.push(`/forum/threads/${thread.id}`)
   } catch (e: any) {
-    error.value = e?.response?.data?.message || '发布失败'
+    error.value = e?.response?.data?.message || (isEdit.value ? '更新失败' : '发布失败')
   } finally {
     saving.value = false
   }
 }
 
 onMounted(async () => {
-  categories.value = await forumApi.categories()
-  form.categoryId = selectableCategories.value[0]?.id || 0
+  loading.value = true
+  try {
+    categories.value = await forumApi.categories()
+    if (isEdit.value) {
+      originalThread.value = await forumApi.thread(threadId.value)
+      form.categoryId = originalThread.value.categoryId
+      form.title = originalThread.value.title
+      form.tags = originalThread.value.tags || ''
+      form.contentMarkdown = originalThread.value.contentMarkdown
+    } else {
+      form.categoryId = selectableCategories.value[0]?.id || 0
+    }
+  } catch (e: any) {
+    error.value = e?.response?.data?.message || '加载失败'
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 
@@ -63,11 +87,12 @@ onMounted(async () => {
   <div class="container page">
     <header class="page-head">
       <RouterLink to="/forum" class="muted mono">← 返回论坛</RouterLink>
-      <h1 class="section-title prompt">发布新帖</h1>
-      <p class="muted">清楚描述问题、经验或项目背景，能显著提高讨论质量。</p>
+      <h1 class="section-title prompt">{{ isEdit ? '编辑帖子' : '发布新帖' }}</h1>
+      <p class="muted">{{ isEdit ? '更新标题、板块、标签或正文内容。' : '清楚描述问题、经验或项目背景，能显著提高讨论质量。' }}</p>
     </header>
 
-    <form class="editor" @submit.prevent="submit">
+    <p v-if="loading" class="muted mono">loading<span class="cursor"></span></p>
+    <form v-else class="editor" @submit.prevent="submit">
       <section class="card form-panel">
         <label class="label">板块</label>
         <select class="input" v-model.number="form.categoryId">
@@ -85,8 +110,10 @@ onMounted(async () => {
 
         <p v-if="error" class="err">{{ error }}</p>
         <div class="actions">
-          <RouterLink to="/forum" class="btn">取消</RouterLink>
-          <button class="btn btn-primary" type="submit" :disabled="saving">{{ saving ? '发布中…' : '发布帖子' }}</button>
+          <RouterLink :to="isEdit && originalThread ? `/forum/threads/${originalThread.id}` : '/forum'" class="btn">取消</RouterLink>
+          <button class="btn btn-primary" type="submit" :disabled="saving">
+            {{ saving ? '保存中…' : (isEdit ? '保存修改' : '发布帖子') }}
+          </button>
         </div>
       </section>
 

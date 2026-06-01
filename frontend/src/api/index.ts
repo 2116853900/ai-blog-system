@@ -2,7 +2,8 @@ import http from './http'
 import type {
   Post, Skill, Mcp, ApiStation, Comment, RefType,
   SubmissionType, Submission, AuthResponse, UserProfile,
-  ForumCategory, ForumThread, ForumReply, Page
+  ForumCategory, ForumThread, ForumReply, Page, AdminOperationLog,
+  ThreadStatus, ReplyStatus, AdminForumUser, UserStatus
 } from './types'
 
 // ---------- 公开接口 ----------
@@ -37,6 +38,8 @@ export const authApi = {
   register: (body: { username: string; email: string; password: string; nickname?: string }) =>
     http.post<AuthResponse>('/auth/register', body).then(r => r.data),
   me: () => http.get<UserProfile | { username: string; role: string }>('/auth/me').then(r => r.data),
+  updateProfile: (body: { nickname?: string; avatarUrl?: string; bio?: string }) =>
+    http.put<UserProfile>('/auth/profile', body).then(r => r.data),
   changePassword: (body: { oldPassword: string; newPassword: string }) =>
     http.put('/auth/password', body).then(r => r.data)
 }
@@ -44,7 +47,7 @@ export const authApi = {
 export const forumApi = {
   categories: () => http.get<ForumCategory[]>('/forum/categories').then(r => r.data),
   category: (id: number) => http.get<ForumCategory>(`/forum/categories/${id}`).then(r => r.data),
-  threads: (params?: { categoryId?: number; page?: number; size?: number }) =>
+  threads: (params?: { categoryId?: number; q?: string; page?: number; size?: number }) =>
     http.get<Page<ForumThread>>('/forum/threads', { params }).then(r => r.data),
   thread: (id: number) => http.get<ForumThread>(`/forum/threads/${id}`).then(r => r.data),
   linkedThreads: (refType: RefType, refId: number) =>
@@ -115,5 +118,71 @@ export const adminApi = {
   forumCategories: () => http.get<ForumCategory[]>('/admin/forum-categories').then(r => r.data),
   createForumCategory: (body: Partial<ForumCategory>) => http.post<ForumCategory>('/admin/forum-categories', body).then(r => r.data),
   updateForumCategory: (id: number, body: Partial<ForumCategory>) => http.put<ForumCategory>(`/admin/forum-categories/${id}`, body).then(r => r.data),
-  deleteForumCategory: (id: number) => http.delete(`/admin/forum-categories/${id}`)
+  deleteForumCategory: (id: number) => http.delete(`/admin/forum-categories/${id}`),
+
+  // forum posts governance
+  forumPosts: (params?: {
+    q?: string
+    author?: string
+    authorId?: number
+    status?: ThreadStatus
+    reported?: boolean
+    createdFrom?: string
+    createdTo?: string
+    page?: number
+    size?: number
+  }) => http.get<Page<ForumThread>>('/admin/forum/posts', { params }).then(r => r.data),
+  forumPost: (id: number) => http.get<ForumThread>(`/admin/forum/posts/${id}`).then(r => r.data),
+  forumPostLogs: (id: number) => http.get<AdminOperationLog[]>(`/admin/forum/posts/${id}/operation-logs`).then(r => r.data),
+  hideForumPost: (id: number, reason?: string) =>
+    http.post<ForumThread>(`/admin/forum/posts/${id}/hide`, { reason }).then(r => r.data),
+  restoreForumPost: (id: number, reason?: string) =>
+    http.post<ForumThread>(`/admin/forum/posts/${id}/restore`, { reason }).then(r => r.data),
+  deleteForumPost: (id: number, reason?: string) =>
+    http.delete(`/admin/forum/posts/${id}`, { data: { reason } }),
+  batchHideForumPosts: (ids: number[], reason?: string) =>
+    http.post<{ affected: number }>('/admin/forum/posts/batch-hide', { ids, reason }).then(r => r.data),
+  batchDeleteForumPosts: (ids: number[], reason?: string) =>
+    http.post<{ affected: number }>('/admin/forum/posts/batch-delete', { ids, reason }).then(r => r.data),
+
+  // forum replies governance
+  forumReplies: (params?: {
+    threadId?: number
+    author?: string
+    authorId?: number
+    status?: ReplyStatus
+    reported?: boolean
+    createdFrom?: string
+    createdTo?: string
+    page?: number
+    size?: number
+  }) => http.get<Page<ForumReply>>('/admin/forum/replies', { params }).then(r => r.data),
+  forumReply: (id: number) => http.get<ForumReply>(`/admin/forum/replies/${id}`).then(r => r.data),
+  forumReplyLogs: (id: number) => http.get<AdminOperationLog[]>(`/admin/forum/replies/${id}/operation-logs`).then(r => r.data),
+  hideForumReply: (id: number, reason?: string) =>
+    http.post<ForumReply>(`/admin/forum/replies/${id}/hide`, { reason }).then(r => r.data),
+  restoreForumReply: (id: number, reason?: string) =>
+    http.post<ForumReply>(`/admin/forum/replies/${id}/restore`, { reason }).then(r => r.data),
+  deleteForumReply: (id: number, reason?: string) =>
+    http.delete(`/admin/forum/replies/${id}`, { data: { reason } }),
+  batchHideForumReplies: (ids: number[], reason?: string) =>
+    http.post<{ affected: number }>('/admin/forum/replies/batch-hide', { ids, reason }).then(r => r.data),
+  batchDeleteForumReplies: (ids: number[], reason?: string) =>
+    http.post<{ affected: number }>('/admin/forum/replies/batch-delete', { ids, reason }).then(r => r.data),
+
+  // forum users governance
+  forumUsers: (params?: {
+    q?: string
+    status?: UserStatus
+    createdFrom?: string
+    createdTo?: string
+    page?: number
+    size?: number
+  }) => http.get<Page<AdminForumUser>>('/admin/users', { params }).then(r => r.data),
+  forumUser: (id: number) => http.get<AdminForumUser>(`/admin/users/${id}`).then(r => r.data),
+  forumUserLogs: (id: number) => http.get<AdminOperationLog[]>(`/admin/users/${id}/operation-logs`).then(r => r.data),
+  banForumUser: (id: number, body: { reason?: string; banEndTime?: string }) =>
+    http.post<AdminForumUser>(`/admin/users/${id}/ban`, body).then(r => r.data),
+  unbanForumUser: (id: number) =>
+    http.post<AdminForumUser>(`/admin/users/${id}/unban`).then(r => r.data)
 }
