@@ -7,6 +7,8 @@ import com.aiblog.entity.ForumThread;
 import com.aiblog.repository.ForumPostFavoriteRepository;
 import com.aiblog.repository.ForumPostLikeRepository;
 import com.aiblog.repository.ForumThreadRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +42,11 @@ public class ForumInteractionService {
         boolean liked = userId != null && likeRepo.existsByPostIdAndUserId(threadId, userId);
         boolean favorited = userId != null && favoriteRepo.existsByPostIdAndUserId(threadId, userId);
         return new ForumInteractionResponse(liked, favorited, thread.getLikeCount(), thread.getFavoriteCount());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ForumThread> listFavoriteThreads(Long userId, Pageable pageable) {
+        return favoriteRepo.findFavoriteThreadsByUserId(userId, INTERACTABLE_STATUSES, pageable);
     }
 
     @Transactional

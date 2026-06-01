@@ -234,3 +234,29 @@ export interface AdminOperationLog {
   detail?: string
   createdAt: string
 }
+
+export type GlobalSearchType = 'POST' | 'SKILL' | 'MCP' | 'API' | 'FORUM_THREAD'
+
+export interface GlobalSearchItem {
+  type: GlobalSearchType
+  id: number
+  title: string
+  description?: string
+  url: string
+  category?: string
+  tags?: string
+  meta?: string
+  createdAt?: string
+}
+
+export interface GlobalSearchGroup {
+  type: GlobalSearchType
+  label: string
+  items: GlobalSearchItem[]
+}
+
+export interface GlobalSearchResponse {
+  query: string
+  totalCount: number
+  groups: GlobalSearchGroup[]
+}

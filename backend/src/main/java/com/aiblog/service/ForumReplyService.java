@@ -26,6 +26,12 @@ public class ForumReplyService {
 
     private static final String TARGET_TYPE = "FORUM_REPLY";
     private static final List<ForumReply.ReplyStatus> VISIBLE_STATUSES = List.of(ForumReply.ReplyStatus.NORMAL);
+    private static final List<ForumThread.ThreadStatus> VISIBLE_THREAD_STATUSES = List.of(
+            ForumThread.ThreadStatus.NORMAL,
+            ForumThread.ThreadStatus.PINNED,
+            ForumThread.ThreadStatus.FEATURED,
+            ForumThread.ThreadStatus.LOCKED
+    );
 
     private final ForumReplyRepository replyRepo;
     private final ForumThreadRepository threadRepo;
@@ -48,6 +54,10 @@ public class ForumReplyService {
 
     public Page<ForumReply> listByAuthor(Long authorId, Pageable pageable) {
         return replyRepo.findByAuthorIdAndStatusIn(authorId, VISIBLE_STATUSES, pageable);
+    }
+
+    public Page<ForumReply> listVisibleByAuthor(Long authorId, Pageable pageable) {
+        return replyRepo.findVisibleByAuthorId(authorId, VISIBLE_STATUSES, VISIBLE_THREAD_STATUSES, pageable);
     }
 
     public Page<ForumReply> adminSearch(Long threadId,

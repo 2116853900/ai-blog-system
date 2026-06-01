@@ -12,11 +12,17 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -50,7 +56,7 @@ class ForumInteractionServiceTest {
         thread.setTitle("治理测试帖");
         thread.setContentMarkdown("content");
         thread.setStatus(ForumThread.ThreadStatus.NORMAL);
-        when(threadRepo.findById(THREAD_ID)).thenReturn(Optional.of(thread));
+        lenient().when(threadRepo.findById(THREAD_ID)).thenReturn(Optional.of(thread));
     }
 
     @Test
@@ -112,5 +118,23 @@ class ForumInteractionServiceTest {
         assertThat(thread.getFavoriteCount()).isZero();
         verify(favoriteRepo, never()).delete(any());
         verify(threadRepo, never()).save(thread);
+    }
+
+    @Test
+    void listFavoriteThreadsUsesInteractableStatuses() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<ForumThread> page = new PageImpl<>(List.of(thread), pageable, 1);
+        List<ForumThread.ThreadStatus> visibleStatuses = List.of(
+                ForumThread.ThreadStatus.NORMAL,
+                ForumThread.ThreadStatus.PINNED,
+                ForumThread.ThreadStatus.FEATURED,
+                ForumThread.ThreadStatus.LOCKED
+        );
+        when(favoriteRepo.findFavoriteThreadsByUserId(USER_ID, visibleStatuses, pageable)).thenReturn(page);
+
+        Page<ForumThread> result = service.listFavoriteThreads(USER_ID, pageable);
+
+        assertThat(result.getContent()).containsExactly(thread);
+        verify(favoriteRepo).findFavoriteThreadsByUserId(USER_ID, visibleStatuses, pageable);
     }
 }
