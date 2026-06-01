@@ -66,9 +66,6 @@ public class ForumThreadController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("message", "请先登录"));
         }
-        if (!userService.isActiveForumUser(userId)) {
-            return ResponseEntity.status(403).body(Map.of("message", "账号已被封禁，暂不能发帖"));
-        }
         ForumThread thread = threadService.create(req, userId);
         return ResponseEntity.ok(thread);
     }
@@ -81,9 +78,6 @@ public class ForumThreadController {
         if (userId == null && !canModerate) {
             return ResponseEntity.status(401).body(Map.of("message", "请先登录"));
         }
-        if (userId != null && !userService.isActiveForumUser(userId)) {
-            return ResponseEntity.status(403).body(Map.of("message", "账号已被封禁，暂不能编辑帖子"));
-        }
         return threadService.update(id, req, userId, canModerate)
                 .map(t -> ResponseEntity.ok((Object) t))
                 .orElse(ResponseEntity.status(403).body(Map.of("message", "无权编辑此帖子")));
@@ -94,9 +88,6 @@ public class ForumThreadController {
     public ResponseEntity<?> delete(@PathVariable Long id, Authentication auth) {
         Long userId = resolveUserId(auth);
         boolean isAdmin = hasModerationRole(auth);
-        if (userId != null && !userService.isActiveForumUser(userId)) {
-            return ResponseEntity.status(403).body(Map.of("message", "账号已被封禁，暂不能删除帖子"));
-        }
         if (threadService.delete(id, userId, isAdmin)) {
             return ResponseEntity.noContent().build();
         }

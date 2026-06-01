@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { adminApi } from '../../api'
-import type { ContentReport, Page, ReportReasonType, ReportStatus, ReportTargetType } from '../../api/types'
+import type { AdminOperationLog, ContentReport, ContentReportTarget, Page, ReportReasonType, ReportStatus, ReportTargetType } from '../../api/types'
 import { toast } from '../../composables/useToast'
 
 const targetOptions: Array<{ value: ReportTargetType | ''; label: string }> = [
@@ -57,6 +57,8 @@ const detailLoading = ref(false)
 const saving = ref(false)
 const pageData = ref<Page<ContentReport> | null>(null)
 const detail = ref<ContentReport | null>(null)
+const logs = ref<AdminOperationLog[]>([])
+const currentTarget = ref<ContentReportTarget | null>(null)
 
 const reviewForm = reactive({
   reviewNote: '',
@@ -115,9 +117,18 @@ function resetReviewForm(report?: ContentReport) {
 async function openDetail(report: ContentReport) {
   detailLoading.value = true
   detail.value = report
+  logs.value = []
+  currentTarget.value = null
   resetReviewForm(report)
   try {
-    detail.value = await adminApi.report(report.id)
+    const [reportDetail, operationLogs, target] = await Promise.all([
+      adminApi.report(report.id),
+      adminApi.reportLogs(report.id),
+      adminApi.reportTarget(report.id)
+    ])
+    detail.value = reportDetail
+    logs.value = operationLogs
+    currentTarget.value = target
   } finally {
     detailLoading.value = false
   }
@@ -125,7 +136,19 @@ async function openDetail(report: ContentReport) {
 
 function closeDetail() {
   detail.value = null
+  logs.value = []
+  currentTarget.value = null
   resetReviewForm()
+}
+
+async function refreshLogs() {
+  if (!detail.value) return
+  logs.value = await adminApi.reportLogs(detail.value.id)
+}
+
+async function refreshCurrentTarget() {
+  if (!detail.value) return
+  currentTarget.value = await adminApi.reportTarget(detail.value.id)
 }
 
 function reviewBody() {
@@ -143,6 +166,8 @@ async function approve() {
   saving.value = true
   try {
     detail.value = await adminApi.approveReport(detail.value.id, reviewBody())
+    await refreshLogs()
+    await refreshCurrentTarget()
     toast.success('举报已通过')
     await load()
   } finally {
@@ -155,6 +180,8 @@ async function reject() {
   saving.value = true
   try {
     detail.value = await adminApi.rejectReport(detail.value.id, { reviewNote: reviewForm.reviewNote.trim() || undefined })
+    await refreshLogs()
+    await refreshCurrentTarget()
     toast.success('举报已驳回')
     await load()
   } finally {
@@ -167,6 +194,8 @@ async function closeReport() {
   saving.value = true
   try {
     detail.value = await adminApi.closeReport(detail.value.id, { reviewNote: reviewForm.reviewNote.trim() || undefined })
+    await refreshLogs()
+    await refreshCurrentTarget()
     toast.success('举报已关闭')
     await load()
   } finally {
@@ -279,6 +308,25 @@ onMounted(load)
           <h3>内容快照</h3>
           <pre class="content-preview">{{ detail.contentSnapshot }}</pre>
 
+          <h3>当前内容</h3>
+          <div v-if="!currentTarget" class="note-box">
+            <span class="muted">当前内容加载失败</span>
+          </div>
+          <div v-else-if="!currentTarget.exists" class="note-box">
+            <span class="muted">当前内容不存在或已被删除。</span>
+          </div>
+          <div v-else class="current-box">
+            <div class="detail-meta">
+              <span v-if="currentTarget.status">状态 {{ currentTarget.status }}</span>
+              <span v-if="currentTarget.authorId">作者 #{{ currentTarget.authorId }}</span>
+              <span v-if="currentTarget.authorName">作者 {{ currentTarget.authorName }}</span>
+              <span v-if="currentTarget.refType">关联 {{ currentTarget.refType }}{{ currentTarget.refId ? ` #${currentTarget.refId}` : '' }}</span>
+              <span v-if="currentTarget.updatedAt">更新 {{ fmt(currentTarget.updatedAt) }}</span>
+            </div>
+            <strong v-if="currentTarget.title">{{ currentTarget.title }}</strong>
+            <pre class="content-preview">{{ currentTarget.content || '-' }}</pre>
+          </div>
+
           <div v-if="detail.status === 'PENDING'" class="review-box">
             <h3>审核操作</h3>
             <label>审核备注</label>
@@ -313,6 +361,17 @@ onMounted(load)
             <p>{{ detail.reviewResult || statusLabels[detail.status] }} · {{ detail.reviewerUsername || '-' }} · {{ fmt(detail.reviewedAt) }}</p>
             <p v-if="detail.reviewNote">{{ detail.reviewNote }}</p>
           </div>
+
+          <h3>操作记录</h3>
+          <p v-if="!logs.length" class="muted">暂无操作记录。</p>
+          <ul v-else class="log-list">
+            <li v-for="log in logs" :key="log.id">
+              <span class="mono">{{ log.action }}</span>
+              <span>{{ log.operatorUsername }}</span>
+              <span class="muted">{{ fmt(log.createdAt) }}</span>
+              <p v-if="log.detail" class="muted">{{ log.detail }}</p>
+            </li>
+          </ul>
         </div>
       </div>
     </div>
@@ -345,6 +404,11 @@ onMounted(load)
 .check-row { display: flex; align-items: center; gap: 8px; }
 .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .review-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.current-box { margin-bottom: 14px; }
+.log-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.log-list li { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; }
+.log-list li > span { margin-right: 10px; }
+.log-list p { margin: 6px 0 0; }
 @media (max-width: 720px) {
   .filters .input { max-width: none; width: 100%; }
   .modal-head { flex-direction: column; }

@@ -4,7 +4,7 @@ import type {
   SubmissionType, Submission, AuthResponse, UserProfile,
   ForumCategory, ForumThread, ForumReply, Page, AdminOperationLog,
   ThreadStatus, ReplyStatus, AdminForumUser, UserStatus, ForumInteraction,
-  ContentReport, ReportReasonType, ReportStatus, ReportTargetType, CommentStatus
+  ContentReport, ContentReportTarget, ReportReasonType, ReportStatus, ReportTargetType, CommentStatus
 } from './types'
 
 // ---------- 公开接口 ----------
@@ -220,6 +220,10 @@ export const adminApi = {
     size?: number
   }) => http.get<Page<ContentReport>>('/admin/reports', { params }).then(r => r.data),
   report: (id: number) => http.get<ContentReport>(`/admin/reports/${id}`).then(r => r.data),
+  reportLogs: (id: number) =>
+    http.get<AdminOperationLog[]>(`/admin/reports/${id}/operation-logs`).then(r => r.data),
+  reportTarget: (id: number) =>
+    http.get<ContentReportTarget>(`/admin/reports/${id}/target`).then(r => r.data),
   approveReport: (id: number, body: { reviewNote?: string; hideContent?: boolean; banTargetAuthor?: boolean; banReason?: string; banEndTime?: string }) =>
     http.post<ContentReport>(`/admin/reports/${id}/approve`, body).then(r => r.data),
   rejectReport: (id: number, body: { reviewNote?: string }) =>

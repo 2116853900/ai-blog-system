@@ -589,3 +589,106 @@ SUPER_ADMIN
 
 - 后端：`mvn -q -DskipTests compile` 通过。
 - 前端：`npm run build` 通过。
+
+## 17. 2026-06-01 接口测试补充执行记录
+
+本次在 `forum-interactions-reports` 分支补齐互动和举报治理的后端测试覆盖：
+
+- 新增 `ForumInteractionServiceTest`，覆盖：
+  - 点赞幂等，重复点赞只写入一次并只递增一次计数。
+  - 取消点赞幂等，计数不会降到 0 以下。
+  - 收藏幂等，重复收藏只写入一次并只递增一次计数。
+  - 未收藏时取消收藏不会改动计数。
+- 新增 `ContentReportServiceTest`，覆盖：
+  - 举报帖子时保存内容快照、举报原因清洗、目标作者和举报人记录。
+  - 举报帖子时递增帖子举报计数。
+  - 审核通过时联动隐藏帖子并封禁被举报作者。
+  - 审核通过时联动隐藏评论并写入管理员操作日志。
+- `backend/pom.xml` 增加 `maven-surefire-plugin` 的 `net.bytebuddy.experimental=true` 测试参数，兼容当前 Java 25 环境下 Mockito/Byte Buddy 运行测试。
+
+验证结果：
+
+- 后端测试：`mvn -q test` 通过。
+- 后端编译：`mvn -q -DskipTests compile` 通过。
+- 前端构建：`npm run build` 通过。
+
+## 18. 2026-06-01 治理中间件与审核日志执行记录
+
+本次在 `forum-interactions-reports` 分支继续完善治理主链路：
+
+- 新增计划文档：`docs/superpowers/plans/2026-06-01-forum-governance-middleware.md`。
+- 新增 `ForumMutationGuardInterceptor` 论坛治理中间件，统一拦截已封禁用户的写操作：
+  - `POST /api/forum/**`
+  - `PUT /api/forum/**`
+  - `DELETE /api/forum/**`
+  - `POST /api/reports`
+  - `POST /api/comments`
+- 新增 `WebMvcConfig` 注册治理中间件。
+- 清理帖子、回复、互动、举报、评论控制器中的重复封禁判断，登录、权限、归属判断仍保留在原控制器逻辑中。
+- 举报审核通过、驳回、关闭现在会写入 `CONTENT_REPORT` 管理员操作日志。
+- 评论举报审核通过且联动隐藏评论时，会同时保留 `CONTENT_REPORT` 审核日志和 `COMMENT` 隐藏日志。
+- 补充 `ForumMutationGuardInterceptorTest`，覆盖封禁拦截、活跃用户放行、GET 放行、后台路径放行、游客评论提交放行、举报提交拦截。
+- 扩展 `ContentReportServiceTest`，覆盖举报审核操作日志。
+
+验证结果：
+
+- 后端测试：`mvn -q test` 通过。
+- 后端编译：`mvn -q -DskipTests compile` 通过。
+- 前端构建：`npm run build` 通过。
+
+## 19. 2026-06-01 举报操作记录可视化执行记录
+
+本次继续完善举报审核详情的追溯能力：
+
+- 新增计划文档：`docs/superpowers/plans/2026-06-01-report-operation-logs.md`。
+- 新增后台举报操作记录接口：
+  - `GET /api/admin/reports/{id}/operation-logs`
+- 后台举报详情弹窗新增 `CONTENT_REPORT` 操作记录展示。
+- 举报审核通过、驳回、关闭后会自动刷新操作记录。
+- 举报操作记录展示复用现有后台日志样式，包含动作、操作人、时间和备注。
+
+验证结果：
+
+- 后端测试：`mvn -q test` 通过。
+- 后端编译：`mvn -q -DskipTests compile` 通过。
+- 前端构建：`npm run build` 通过。
+
+## 20. 2026-06-01 举报当前内容对照执行记录
+
+本次继续完善举报审核详情的信息完整性：
+
+- 新增计划文档：`docs/superpowers/plans/2026-06-01-report-current-content.md`。
+- 新增当前被举报内容接口：
+  - `GET /api/admin/reports/{id}/target`
+- 新增 `ContentReportTargetResponse`，统一返回帖子、回复、评论的当前内容、状态、作者、关联对象和时间信息。
+- 后台举报详情弹窗新增“当前内容”面板，与举报时“内容快照”并列展示，用于审核对照。
+- 当前目标不存在或已被物理删除时，后台会明确展示缺失状态。
+- 审核通过、驳回、关闭后会同步刷新当前内容和操作记录。
+- 补充 `ContentReportServiceTest`，覆盖当前帖子内容解析和目标缺失状态。
+
+验证结果：
+
+- 后端测试：`mvn -q test` 通过。
+- 后端编译：`mvn -q -DskipTests compile` 通过。
+- 前端构建：`npm run build` 通过。
+
+下一步建议：
+
+1. 如需更接近真实接口行为，补 `MockMvc` 或测试数据库级集成测试，覆盖鉴权、HTTP 状态码和 JSON 字段。
+2. 补后台治理端到端验收用例，串联举报提交、审核通过、隐藏内容、封禁用户和用户侧不可见。
+
+## 21. 2026-06-01 举报审核终态保护执行记录
+
+本次继续收口举报审核的状态流转边界：
+
+- 举报审核服务新增终态保护：只有 `PENDING` 状态的举报可以执行通过、驳回或关闭。
+- 已经 `APPROVED`、`REJECTED` 或 `CLOSED` 的举报再次收到审核请求时，会返回当前记录，不会覆盖原审核人、备注和审核时间。
+- 终态举报不会重复触发联动副作用，包括隐藏帖子/回复/评论、封禁被举报作者和写入审核操作日志。
+- 扩展 `ContentReportServiceTest`，覆盖已审核举报重复通过时不再保存、不再隐藏、不再封禁、不再写日志。
+
+验证结果：
+
+- 后端测试：`mvn -q test` 通过。
+- 后端编译：`mvn -q -DskipTests compile` 通过。
+- 前端构建：`npm run build` 通过。
+- Diff 检查：`git diff --check` 通过。

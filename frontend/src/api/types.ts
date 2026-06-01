@@ -200,6 +200,21 @@ export interface ContentReport {
   updatedAt: string
 }
 
+export interface ContentReportTarget {
+  targetType: ReportTargetType
+  targetId: number
+  exists: boolean
+  status?: string
+  authorId?: number
+  authorName?: string
+  title?: string
+  content?: string
+  refType?: string
+  refId?: number
+  createdAt?: string
+  updatedAt?: string
+}
+
 export interface Page<T> {
   content: T[]
   number: number
