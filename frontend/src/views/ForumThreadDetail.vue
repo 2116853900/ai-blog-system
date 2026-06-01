@@ -250,7 +250,8 @@ onMounted(load)
               </div>
               <h1>{{ thread.title }}</h1>
               <p class="muted mono small">
-                {{ authorName(thread.authorId) }} · {{ fmt(thread.createdAt) }} · {{ thread.viewCount }} 浏览 · {{ thread.replyCount }} 回复
+                <RouterLink class="author-link" :to="`/users/${thread.authorId}`">{{ authorName(thread.authorId) }}</RouterLink>
+                <span> · {{ fmt(thread.createdAt) }} · {{ thread.viewCount }} 浏览 · {{ thread.replyCount }} 回复</span>
               </p>
             </div>
             <div class="thread-actions">
@@ -293,7 +294,7 @@ onMounted(load)
               <article v-for="r in replies?.content" :key="r.id" class="card reply-card">
                 <div class="reply-info">
                   <span class="mono">#{{ r.floorNumber }}</span>
-                  <span>{{ authorName(r.authorId) }}</span>
+                  <RouterLink class="author-link" :to="`/users/${r.authorId}`">{{ authorName(r.authorId) }}</RouterLink>
                   <span class="muted">{{ fmt(r.createdAt) }}</span>
                   <button class="btn btn-sm" @click="quoteReply(r)">引用</button>
                   <button class="btn btn-sm" @click="openReport('REPLY', r.id, `#${r.floorNumber} 回复`)">举报</button>
@@ -366,6 +367,8 @@ onMounted(load)
 .reply-card { padding: 18px 20px; }
 .reply-info { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; color: var(--text-soft); font-size: 13px; }
 .reply-info .btn { margin-left: auto; }
+.author-link { color: var(--primary); font-weight: 700; }
+.author-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .pager { justify-content: center; margin-top: 18px; }
 .reply-form { padding: 22px; margin-top: 24px; }
 .reply-form h2 { margin-top: 0; }

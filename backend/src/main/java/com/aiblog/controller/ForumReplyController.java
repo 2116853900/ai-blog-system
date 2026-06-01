@@ -44,9 +44,6 @@ public class ForumReplyController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("message", "请先登录"));
         }
-        if (!userService.isActiveForumUser(userId)) {
-            return ResponseEntity.status(403).body(Map.of("message", "账号已被封禁，暂不能回复"));
-        }
         try {
             ForumReply reply = replyService.create(threadId, req, userId);
             return ResponseEntity.ok(reply);
@@ -62,9 +59,6 @@ public class ForumReplyController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("message", "请先登录"));
         }
-        if (!userService.isActiveForumUser(userId)) {
-            return ResponseEntity.status(403).body(Map.of("message", "账号已被封禁，暂不能编辑回复"));
-        }
         return replyService.update(id, req, userId)
                 .map(r -> ResponseEntity.ok((Object) r))
                 .orElse(ResponseEntity.status(403).body(Map.of("message", "无权编辑此回复")));
@@ -75,9 +69,6 @@ public class ForumReplyController {
     public ResponseEntity<?> delete(@PathVariable Long id, Authentication auth) {
         Long userId = resolveUserId(auth);
         boolean isAdmin = hasModerationRole(auth);
-        if (userId != null && !userService.isActiveForumUser(userId)) {
-            return ResponseEntity.status(403).body(Map.of("message", "账号已被封禁，暂不能删除回复"));
-        }
         if (replyService.delete(id, userId, isAdmin)) {
             return ResponseEntity.noContent().build();
         }

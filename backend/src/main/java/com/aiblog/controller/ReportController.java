@@ -29,9 +29,6 @@ public class ReportController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("message", "请先登录"));
         }
-        if (!userService.isActiveForumUser(userId)) {
-            return ResponseEntity.status(403).body(Map.of("message", "账号已被封禁，暂不能举报"));
-        }
         try {
             ContentReport report = reportService.submit(req, userId);
             return ResponseEntity.ok(report);

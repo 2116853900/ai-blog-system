@@ -34,14 +34,16 @@
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
+| GET  | `/api/search?q=&limit=` | 全站搜索：教程、Skill、MCP、API 站点、论坛帖子 |
 | GET  | `/api/posts` `/api/posts/{slug}` | 教程列表 / 详情 |
-| GET  | `/api/skills?q=&tag=&category=` | Skill 列表（搜索/筛选）|
-| GET  | `/api/mcps?q=&tag=&category=` | MCP 列表 |
-| GET  | `/api/api-stations?q=&tag=` | 公益 API 站点列表 |
+| GET  | `/api/skills?q=&tag=&category=` `/api/skills/{id}` | Skill 列表 / 详情 |
+| GET  | `/api/mcps?q=&tag=&category=` `/api/mcps/{id}` | MCP 列表 / 详情 |
+| GET  | `/api/api-stations?q=&tag=` `/api/api-stations/{id}` | 公益 API 站点列表 / 详情 |
 | GET  | `/api/comments?type=&refId=` | 某内容下已审核评论 |
 | POST | `/api/comments` | 提交评论（待审核）|
 | POST | `/api/submissions` | 投稿（待审核）|
 | GET/POST/PUT/DELETE | `/api/forum/**` | 论坛板块、帖子、回复；帖子列表支持 `q` 关键词搜索 |
+| GET  | `/api/users/{id}` `/api/users/{id}/threads` `/api/users/{id}/replies` | 用户公开资料 / 公开帖子 / 公开回复 |
 | POST | `/api/auth/register` | 论坛用户注册 |
 | GET  | `/api/auth/me` | 当前登录用户信息 |
 | PUT  | `/api/auth/profile` | 修改论坛用户昵称、头像和简介 |
@@ -61,7 +63,7 @@ npm run dev
 
 前端运行在 `http://localhost:5173`，已通过 Vite 代理把 `/api` 转发到后端 `:8080`。
 
-- 公开站点：`/`、`/skills`、`/mcps`、`/tutorials`、`/api-stations`、`/forum`、`/submit`、`/login`、`/account`
+- 公开站点：`/`、`/skills`、`/mcps`、`/tutorials`、`/api-stations`、`/forum`、`/users/:id`、`/submit`、`/login`、`/account`
 - 后台：`/admin/login` 登录后进入 `/admin`
 
 ## 端到端验证

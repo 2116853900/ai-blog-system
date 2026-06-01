@@ -200,6 +200,21 @@ export interface ContentReport {
   updatedAt: string
 }
 
+export interface ContentReportTarget {
+  targetType: ReportTargetType
+  targetId: number
+  exists: boolean
+  status?: string
+  authorId?: number
+  authorName?: string
+  title?: string
+  content?: string
+  refType?: string
+  refId?: number
+  createdAt?: string
+  updatedAt?: string
+}
+
 export interface Page<T> {
   content: T[]
   number: number
@@ -218,4 +233,30 @@ export interface AdminOperationLog {
   targetId: number
   detail?: string
   createdAt: string
+}
+
+export type GlobalSearchType = 'POST' | 'SKILL' | 'MCP' | 'API' | 'FORUM_THREAD'
+
+export interface GlobalSearchItem {
+  type: GlobalSearchType
+  id: number
+  title: string
+  description?: string
+  url: string
+  category?: string
+  tags?: string
+  meta?: string
+  createdAt?: string
+}
+
+export interface GlobalSearchGroup {
+  type: GlobalSearchType
+  label: string
+  items: GlobalSearchItem[]
+}
+
+export interface GlobalSearchResponse {
+  query: string
+  totalCount: number
+  groups: GlobalSearchGroup[]
 }

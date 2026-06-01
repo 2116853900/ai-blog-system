@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import ThemeToggle from './ThemeToggle.vue'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 
 const open = ref(false)
 const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
+const searchQuery = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const links = [
   { to: '/', label: 'home' },
   { to: '/skills', label: 'skills' },
@@ -18,7 +21,24 @@ const links = [
 
 function logout() {
   auth.logout()
+  open.value = false
 }
+
+function submitSearch() {
+  const q = searchQuery.value.trim()
+  if (!q) return
+  open.value = false
+  router.push({ name: 'search', query: { q } })
+}
+
+watch(
+  () => route.query.q,
+  value => {
+    if (route.name === 'search') {
+      searchQuery.value = typeof value === 'string' ? value : ''
+    }
+  }
+)
 </script>
 
 <template>
@@ -39,13 +59,26 @@ function logout() {
         {{ open ? '✕' : '☰' }}
       </button>
 
-      <nav id="nav-links" class="links" :class="{ open }" @click="open = false" aria-label="主导航">
-        <RouterLink v-for="l in links" :key="l.to" :to="l.to" class="nav-link">
+      <nav id="nav-links" class="links" :class="{ open }" aria-label="主导航">
+        <RouterLink v-for="l in links" :key="l.to" :to="l.to" class="nav-link" @click="open = false">
           {{ l.label }}
         </RouterLink>
-        <RouterLink v-if="!auth.isLoggedIn()" to="/login" class="nav-link">login</RouterLink>
+        <form class="nav-search" role="search" @submit.prevent="submitSearch" @click.stop>
+          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M21 21l-4.3-4.3" />
+          </svg>
+          <input
+            v-model="searchQuery"
+            class="nav-search-input"
+            type="search"
+            placeholder="全站搜索"
+            aria-label="全站搜索"
+          />
+        </form>
+        <RouterLink v-if="!auth.isLoggedIn()" to="/login" class="nav-link" @click="open = false">login</RouterLink>
         <div v-else class="user-box">
-          <RouterLink to="/account" class="user-link mono">{{ auth.displayName }}</RouterLink>
+          <RouterLink to="/account" class="user-link mono" @click="open = false">{{ auth.displayName }}</RouterLink>
           <button class="btn btn-sm btn-ghost" @click="logout">退出</button>
         </div>
         <ThemeToggle />
@@ -104,6 +137,39 @@ function logout() {
   background: var(--primary-soft);
 }
 .router-link-exact-active.nav-link::before { color: var(--primary-dim); }
+.nav-search {
+  width: 178px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 6px;
+  padding: 0 10px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.nav-search:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+.search-icon {
+  flex-shrink: 0;
+  color: var(--text-dim);
+}
+.nav-search-input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+.nav-search-input::placeholder { color: var(--text-dim); }
+.nav-search-input::-webkit-search-cancel-button { display: none; }
 .user-box { display: flex; align-items: center; gap: 8px; margin-left: 4px; }
 .user-link {
   max-width: 110px;
@@ -147,6 +213,12 @@ function logout() {
   }
   .links.open { display: flex; }
   .nav-link { padding: 11px 14px; font-size: 15px; }
+  .nav-search {
+    width: 100%;
+    height: 42px;
+    margin: 2px 0 8px;
+  }
+  .nav-search-input { font-size: 14px; }
   .user-box { margin-left: 0; align-items: stretch; }
   .user-link { max-width: none; }
 }

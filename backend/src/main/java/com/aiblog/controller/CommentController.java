@@ -3,10 +3,8 @@ package com.aiblog.controller;
 import com.aiblog.dto.CommentRequest;
 import com.aiblog.entity.Comment;
 import com.aiblog.repository.CommentRepository;
-import com.aiblog.service.ForumUserService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,11 +15,9 @@ import java.util.Map;
 public class CommentController {
 
     private final CommentRepository repo;
-    private final ForumUserService userService;
 
-    public CommentController(CommentRepository repo, ForumUserService userService) {
+    public CommentController(CommentRepository repo) {
         this.repo = repo;
-        this.userService = userService;
     }
 
     /** 获取某条内容下已审核通过的评论 */
@@ -33,11 +29,7 @@ public class CommentController {
 
     /** 访客提交评论（进入待审核） */
     @PostMapping
-    public ResponseEntity<?> create(@Valid @RequestBody CommentRequest req, Authentication auth) {
-        Long userId = resolveUserId(auth);
-        if (userId != null && !userService.isActiveForumUser(userId)) {
-            return ResponseEntity.status(403).body(Map.of("message", "账号已被封禁，暂不能评论"));
-        }
+    public ResponseEntity<?> create(@Valid @RequestBody CommentRequest req) {
         Comment c = new Comment();
         c.setRefType(req.getRefType());
         c.setRefId(req.getRefId());
@@ -46,10 +38,5 @@ public class CommentController {
         c.setApproved(false);
         repo.save(c);
         return ResponseEntity.ok(Map.of("message", "评论已提交，将在审核后显示"));
-    }
-
-    private Long resolveUserId(Authentication auth) {
-        if (auth == null) return null;
-        return userService.findByUsername(auth.getName()).map(u -> u.getId()).orElse(null);
     }
 }

@@ -1,6 +1,8 @@
 package com.aiblog.controller.admin;
 
 import com.aiblog.dto.ReportReviewRequest;
+import com.aiblog.dto.ContentReportTargetResponse;
+import com.aiblog.entity.AdminOperationLog;
 import com.aiblog.entity.ContentReport;
 import com.aiblog.service.ContentReportService;
 import jakarta.validation.Valid;
@@ -12,6 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin/reports")
@@ -39,6 +42,18 @@ public class AdminReportController {
     @GetMapping("/{id}")
     public ResponseEntity<ContentReport> get(@PathVariable Long id) {
         return reportService.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{id}/operation-logs")
+    public List<AdminOperationLog> operationLogs(@PathVariable Long id) {
+        return reportService.adminOperationLogs(id);
+    }
+
+    @GetMapping("/{id}/target")
+    public ResponseEntity<ContentReportTargetResponse> target(@PathVariable Long id) {
+        return reportService.currentTarget(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }

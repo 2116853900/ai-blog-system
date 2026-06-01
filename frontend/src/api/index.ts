@@ -4,22 +4,28 @@ import type {
   SubmissionType, Submission, AuthResponse, UserProfile,
   ForumCategory, ForumThread, ForumReply, Page, AdminOperationLog,
   ThreadStatus, ReplyStatus, AdminForumUser, UserStatus, ForumInteraction,
-  ContentReport, ReportReasonType, ReportStatus, ReportTargetType, CommentStatus
+  ContentReport, ContentReportTarget, ReportReasonType, ReportStatus, ReportTargetType, CommentStatus,
+  GlobalSearchResponse
 } from './types'
 
 // ---------- 公开接口 ----------
 export const publicApi = {
   posts: () => http.get<Post[]>('/posts').then(r => r.data),
   post: (slug: string) => http.get<Post>(`/posts/${slug}`).then(r => r.data),
+  search: (params?: { q?: string; limit?: number }) =>
+    http.get<GlobalSearchResponse>('/search', { params }).then(r => r.data),
 
   skills: (params?: { q?: string; tag?: string; category?: string }) =>
     http.get<Skill[]>('/skills', { params }).then(r => r.data),
+  skill: (id: number) => http.get<Skill>(`/skills/${id}`).then(r => r.data),
 
   mcps: (params?: { q?: string; tag?: string; category?: string }) =>
     http.get<Mcp[]>('/mcps', { params }).then(r => r.data),
+  mcp: (id: number) => http.get<Mcp>(`/mcps/${id}`).then(r => r.data),
 
   apiStations: (params?: { q?: string; tag?: string }) =>
     http.get<ApiStation[]>('/api-stations', { params }).then(r => r.data),
+  apiStation: (id: number) => http.get<ApiStation>(`/api-stations/${id}`).then(r => r.data),
 
   comments: (type: RefType, refId: number) =>
     http.get<Comment[]>('/comments', { params: { type, refId } }).then(r => r.data),
@@ -43,6 +49,15 @@ export const authApi = {
     http.put<UserProfile>('/auth/profile', body).then(r => r.data),
   changePassword: (body: { oldPassword: string; newPassword: string }) =>
     http.put('/auth/password', body).then(r => r.data)
+}
+
+export const accountApi = {
+  threads: (params?: { page?: number; size?: number }) =>
+    http.get<Page<ForumThread>>('/account/threads', { params }).then(r => r.data),
+  replies: (params?: { page?: number; size?: number }) =>
+    http.get<Page<ForumReply>>('/account/replies', { params }).then(r => r.data),
+  favorites: (params?: { page?: number; size?: number }) =>
+    http.get<Page<ForumThread>>('/account/favorites', { params }).then(r => r.data)
 }
 
 export const forumApi = {
@@ -80,7 +95,11 @@ export const forumApi = {
 }
 
 export const userApi = {
-  profile: (id: number) => http.get<UserProfile>(`/users/${id}`).then(r => r.data)
+  profile: (id: number) => http.get<UserProfile>(`/users/${id}`).then(r => r.data),
+  threads: (id: number, params?: { page?: number; size?: number }) =>
+    http.get<Page<ForumThread>>(`/users/${id}/threads`, { params }).then(r => r.data),
+  replies: (id: number, params?: { page?: number; size?: number }) =>
+    http.get<Page<ForumReply>>(`/users/${id}/replies`, { params }).then(r => r.data)
 }
 
 // ---------- 后台接口 ----------
@@ -220,6 +239,10 @@ export const adminApi = {
     size?: number
   }) => http.get<Page<ContentReport>>('/admin/reports', { params }).then(r => r.data),
   report: (id: number) => http.get<ContentReport>(`/admin/reports/${id}`).then(r => r.data),
+  reportLogs: (id: number) =>
+    http.get<AdminOperationLog[]>(`/admin/reports/${id}/operation-logs`).then(r => r.data),
+  reportTarget: (id: number) =>
+    http.get<ContentReportTarget>(`/admin/reports/${id}/target`).then(r => r.data),
   approveReport: (id: number, body: { reviewNote?: string; hideContent?: boolean; banTargetAuthor?: boolean; banReason?: string; banEndTime?: string }) =>
     http.post<ContentReport>(`/admin/reports/${id}/approve`, body).then(r => r.data),
   rejectReport: (id: number, body: { reviewNote?: string }) =>
