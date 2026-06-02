@@ -5,7 +5,7 @@ import type {
   ForumCategory, ForumThread, ForumReply, Page, AdminOperationLog,
   ThreadStatus, ReplyStatus, AdminForumUser, UserStatus, ForumInteraction,
   ContentReport, ContentReportTarget, ReportReasonType, ReportStatus, ReportTargetType, CommentStatus,
-  GlobalSearchResponse
+  GlobalSearchResponse, AdminDashboard
 } from './types'
 
 // ---------- 公开接口 ----------
@@ -104,6 +104,8 @@ export const userApi = {
 
 // ---------- 后台接口 ----------
 export const adminApi = {
+  dashboard: () => http.get<AdminDashboard>('/admin/dashboard').then(r => r.data),
+
   // posts
   posts: () => http.get<Post[]>('/admin/posts').then(r => r.data),
   post: (id: number) => http.get<Post>(`/admin/posts/${id}`).then(r => r.data),

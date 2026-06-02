@@ -7,4 +7,5 @@ import java.util.List;
 public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     List<Submission> findByStatusOrderByCreatedAtDesc(Submission.Status status);
     List<Submission> findAllByOrderByCreatedAtDesc();
+    long countByStatus(Submission.Status status);
 }

@@ -10,6 +10,7 @@ import java.util.List;
 
 public interface ContentReportRepository extends JpaRepository<ContentReport, Long>, JpaSpecificationExecutor<ContentReport> {
     long countByTargetTypeAndTargetId(ContentReport.TargetType targetType, Long targetId);
+    long countByStatus(ContentReport.ReportStatus status);
     List<ContentReport> findByTargetTypeAndTargetIdOrderByCreatedAtDesc(ContentReport.TargetType targetType, Long targetId);
     Page<ContentReport> findByReporterIdOrderByCreatedAtDesc(Long reporterId, Pageable pageable);
     Page<ContentReport> findByTargetAuthorIdOrderByCreatedAtDesc(Long targetAuthorId, Pageable pageable);

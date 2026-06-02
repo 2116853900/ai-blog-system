@@ -235,6 +235,32 @@ export interface AdminOperationLog {
   createdAt: string
 }
 
+export interface AdminDashboard {
+  moderation: {
+    pendingComments: number
+    pendingSubmissions: number
+    pendingReports: number
+  }
+  content: {
+    posts: number
+    skills: number
+    mcps: number
+    apiStations: number
+  }
+  community: {
+    users: number
+    activeUsers: number
+    bannedUsers: number
+    threads: number
+    replies: number
+  }
+  apiStations: {
+    up: number
+    down: number
+    unknown: number
+  }
+}
+
 export type GlobalSearchType = 'POST' | 'SKILL' | 'MCP' | 'API' | 'FORUM_THREAD'
 
 export interface GlobalSearchItem {

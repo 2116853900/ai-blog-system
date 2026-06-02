@@ -5,7 +5,7 @@
 - 前端：Vue 3 + Vite + TypeScript（暗色模式、响应式、Markdown 渲染）
 - 后端：Spring Boot 3 + Spring Security + JWT
 - 数据库：MySQL 8
-- 功能：全站搜索与标签筛选、公益 API 站点在线状态定时检测、访客评论/投稿、评论举报、资源关联论坛讨论、论坛发帖/回帖、管理员后台审核与内容管理
+- 功能：全站搜索与标签筛选、公益 API 站点在线状态定时检测、访客评论/投稿、评论举报、资源关联论坛讨论、论坛发帖/回帖、管理员后台总览、审核与内容管理
 
 ## 环境要求
 
@@ -49,6 +49,7 @@
 | PUT  | `/api/auth/profile` | 修改论坛用户昵称、头像和简介 |
 | PUT  | `/api/auth/password` | 修改论坛用户密码 |
 | POST | `/api/auth/login` | 管理员登录，返回 JWT |
+| GET  | `/api/admin/dashboard` | 后台总览：待审核事项、内容规模、社区与 API 状态统计 |
 | *    | `/api/admin/**` | 后台接口（需 `Authorization: Bearer <token>`）|
 
 公益 API 站点状态由 `StatusCheckService` 每 10 分钟自动检测一次（`app.status-check.cron` 可配），也可在后台手动触发。
@@ -64,7 +65,7 @@ npm run dev
 前端运行在 `http://localhost:5173`，已通过 Vite 代理把 `/api` 转发到后端 `:8080`。
 
 - 公开站点：`/`、`/skills`、`/mcps`、`/tutorials`、`/api-stations`、`/forum`、`/users/:id`、`/submit`、`/login`、`/account`
-- 后台：`/admin/login` 登录后进入 `/admin`
+- 后台：`/admin/login` 登录后进入 `/admin` 总览，可继续管理教程、Skill、MCP、API 站点、评论、投稿、用户和举报
 
 ## 端到端验证
 
