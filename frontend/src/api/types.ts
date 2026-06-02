@@ -49,6 +49,15 @@ export interface ApiStation {
   createdAt?: string
 }
 
+export interface ApiStationStatusCheck {
+  id: number
+  stationId: number
+  status: ApiStatus
+  latencyMs?: number
+  checkedAt: string
+  errorMessage?: string
+}
+
 export type RefType = 'POST' | 'SKILL' | 'MCP' | 'API'
 export type CommentStatus = 'NORMAL' | 'HIDDEN' | 'DELETED'
 
@@ -175,6 +184,40 @@ export interface ForumInteraction {
   favorited: boolean
   likeCount: number
   favoriteCount: number
+}
+
+export type ResourceFavoriteRefType = 'POST' | 'SKILL' | 'MCP' | 'API'
+
+export interface ResourceFavoriteInteraction {
+  favorited: boolean
+  favoriteCount: number
+}
+
+export interface ResourceFavoriteItem {
+  id: number
+  refType: ResourceFavoriteRefType
+  refId: number
+  title: string
+  description?: string
+  url: string
+  category?: string
+  tags?: string
+  available: boolean
+  createdAt: string
+}
+
+export type NotificationType = 'THREAD_REPLY' | 'REPLY_REPLY'
+
+export interface UserNotification {
+  id: number
+  type: NotificationType
+  title: string
+  message: string
+  linkUrl: string
+  actorId?: number
+  read: boolean
+  createdAt: string
+  readAt?: string
 }
 
 export type ReportTargetType = 'POST' | 'REPLY' | 'COMMENT'

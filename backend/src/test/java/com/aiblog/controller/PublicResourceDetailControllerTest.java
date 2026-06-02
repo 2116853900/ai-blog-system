@@ -1,14 +1,18 @@
 package com.aiblog.controller;
 
+import com.aiblog.dto.ApiStationStatusCheckResponse;
 import com.aiblog.entity.ApiStation;
 import com.aiblog.entity.Mcp;
 import com.aiblog.entity.Skill;
 import com.aiblog.repository.ApiStationRepository;
 import com.aiblog.repository.McpRepository;
 import com.aiblog.repository.SkillRepository;
+import com.aiblog.service.ApiStationStatusHistoryService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -77,7 +81,7 @@ class PublicResourceDetailControllerTest {
         station.setName("OpenAI 官方");
         station.setBaseUrl("https://api.openai.com");
         when(repo.findById(3L)).thenReturn(Optional.of(station));
-        ApiStationController controller = new ApiStationController(repo);
+        ApiStationController controller = new ApiStationController(repo, mock(ApiStationStatusHistoryService.class));
 
         var response = controller.detail(3L);
 
@@ -89,9 +93,42 @@ class PublicResourceDetailControllerTest {
     void apiStationDetailReturnsNotFoundWhenMissing() {
         ApiStationRepository repo = mock(ApiStationRepository.class);
         when(repo.findById(404L)).thenReturn(Optional.empty());
-        ApiStationController controller = new ApiStationController(repo);
+        ApiStationController controller = new ApiStationController(repo, mock(ApiStationStatusHistoryService.class));
 
         var response = controller.detail(404L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void apiStationChecksReturnsRecentHistory() {
+        ApiStationRepository repo = mock(ApiStationRepository.class);
+        ApiStationStatusHistoryService historyService = mock(ApiStationStatusHistoryService.class);
+        ApiStationStatusCheckResponse check = new ApiStationStatusCheckResponse(
+                9L,
+                3L,
+                ApiStation.Status.UP,
+                120,
+                Instant.parse("2026-06-02T10:15:30Z"),
+                null
+        );
+        when(historyService.recent(3L, 10)).thenReturn(Optional.of(List.of(check)));
+        ApiStationController controller = new ApiStationController(repo, historyService);
+
+        var response = controller.checks(3L, 10);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).containsExactly(check);
+    }
+
+    @Test
+    void apiStationChecksReturnsNotFoundWhenStationMissing() {
+        ApiStationRepository repo = mock(ApiStationRepository.class);
+        ApiStationStatusHistoryService historyService = mock(ApiStationStatusHistoryService.class);
+        when(historyService.recent(404L, 20)).thenReturn(Optional.empty());
+        ApiStationController controller = new ApiStationController(repo, historyService);
+
+        var response = controller.checks(404L, 20);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }

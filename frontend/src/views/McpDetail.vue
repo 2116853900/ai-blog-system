@@ -6,6 +6,7 @@ import type { Mcp } from '../api/types'
 import CommentSection from '../components/CommentSection.vue'
 import CopyButton from '../components/CopyButton.vue'
 import LinkedDiscussions from '../components/LinkedDiscussions.vue'
+import ResourceFavoriteButton from '../components/ResourceFavoriteButton.vue'
 import Skeleton from '../components/Skeleton.vue'
 import StarRating from '../components/StarRating.vue'
 import TagList from '../components/TagList.vue'
@@ -55,7 +56,10 @@ watch(() => route.params.id, load)
           <span v-if="mcp.category" class="chip chip-active">{{ mcp.category }}</span>
           <h1 class="mono">{{ mcp.name }}</h1>
         </div>
-        <StarRating :level="mcp.recommendLevel" />
+        <div class="head-actions">
+          <StarRating :level="mcp.recommendLevel" />
+          <ResourceFavoriteButton ref-type="MCP" :ref-id="mcp.id" />
+        </div>
       </header>
 
       <p class="desc">{{ mcp.description || '暂无描述。' }}</p>
@@ -91,6 +95,7 @@ watch(() => route.params.id, load)
 .detail-card { padding: 26px; }
 .detail-head { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 16px; }
 .detail-head h1 { margin: 10px 0 0; font-size: 30px; line-height: 1.25; }
+.head-actions { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 10px; }
 .desc { margin: 0 0 18px; line-height: 1.85; color: var(--text-soft); }
 .field { margin-bottom: 18px; }
 .label { display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; }
@@ -98,6 +103,7 @@ watch(() => route.params.id, load)
 .sep { border: none; border-top: 1px dashed var(--border-strong); margin: 28px 0; }
 @media (max-width: 640px) {
   .detail-head { flex-direction: column; }
+  .head-actions { justify-content: flex-start; }
   .detail-card { padding: 20px; }
 }
 </style>

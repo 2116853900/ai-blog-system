@@ -22,14 +22,17 @@ public class StatusCheckService {
     private static final Logger log = LoggerFactory.getLogger(StatusCheckService.class);
 
     private final ApiStationRepository repo;
+    private final ApiStationStatusHistoryService historyService;
     private final boolean enabled;
     private final int timeoutMs;
     private final HttpClient client;
 
     public StatusCheckService(ApiStationRepository repo,
+                              ApiStationStatusHistoryService historyService,
                               @Value("${app.status-check.enabled:true}") boolean enabled,
                               @Value("${app.status-check.timeout-ms:8000}") int timeoutMs) {
         this.repo = repo;
+        this.historyService = historyService;
         this.enabled = enabled;
         this.timeoutMs = timeoutMs;
         this.client = HttpClient.newBuilder()
@@ -54,6 +57,7 @@ public class StatusCheckService {
         long start = System.currentTimeMillis();
         ApiStation.Status status = ApiStation.Status.DOWN;
         Integer latency = null;
+        String errorMessage = null;
         try {
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(s.getBaseUrl()))
@@ -65,6 +69,8 @@ public class StatusCheckService {
             // 任何 HTTP 响应（含 4xx/401，常见于需鉴权的 API 根路径）都视为站点在线
             if (resp.statusCode() < 500) {
                 status = ApiStation.Status.UP;
+            } else {
+                errorMessage = "HTTP " + resp.statusCode();
             }
         } catch (Exception e) {
             // 部分服务器不支持 HEAD，回退到 GET 再试一次
@@ -78,14 +84,20 @@ public class StatusCheckService {
                 latency = (int) (System.currentTimeMillis() - start);
                 if (resp.statusCode() < 500) {
                     status = ApiStation.Status.UP;
+                    errorMessage = null;
+                } else {
+                    errorMessage = "HTTP " + resp.statusCode();
                 }
             } catch (Exception ex) {
+                errorMessage = ex.getMessage();
                 log.debug("站点 {} 检测失败: {}", s.getName(), ex.getMessage());
             }
         }
         s.setStatus(status);
         s.setLatencyMs(latency);
         s.setLastCheckedAt(Instant.now());
-        return repo.save(s);
+        ApiStation saved = repo.save(s);
+        historyService.record(saved, errorMessage);
+        return saved;
     }
 }

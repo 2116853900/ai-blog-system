@@ -1,9 +1,10 @@
 import http from './http'
 import type {
-  Post, Skill, Mcp, ApiStation, Comment, RefType,
+  Post, Skill, Mcp, ApiStation, ApiStationStatusCheck, Comment, RefType,
   SubmissionType, Submission, AuthResponse, UserProfile,
   ForumCategory, ForumThread, ForumReply, Page, AdminOperationLog,
   ThreadStatus, ReplyStatus, AdminForumUser, UserStatus, ForumInteraction,
+  ResourceFavoriteInteraction, ResourceFavoriteItem, ResourceFavoriteRefType, UserNotification,
   ContentReport, ContentReportTarget, ReportReasonType, ReportStatus, ReportTargetType, CommentStatus,
   GlobalSearchResponse, AdminDashboard
 } from './types'
@@ -26,9 +27,14 @@ export const publicApi = {
   apiStations: (params?: { q?: string; tag?: string }) =>
     http.get<ApiStation[]>('/api-stations', { params }).then(r => r.data),
   apiStation: (id: number) => http.get<ApiStation>(`/api-stations/${id}`).then(r => r.data),
+  apiStationChecks: (id: number, params?: { limit?: number }) =>
+    http.get<ApiStationStatusCheck[]>(`/api-stations/${id}/checks`, { params }).then(r => r.data),
 
   comments: (type: RefType, refId: number) =>
     http.get<Comment[]>('/comments', { params: { type, refId } }).then(r => r.data),
+
+  resourceFavoriteInteraction: (refType: ResourceFavoriteRefType, refId: number) =>
+    http.get<ResourceFavoriteInteraction>(`/resource-favorites/${refType}/${refId}`).then(r => r.data),
 
   addComment: (body: { refType: RefType; refId: number; author: string; content: string }) =>
     http.post('/comments', body).then(r => r.data),
@@ -57,7 +63,21 @@ export const accountApi = {
   replies: (params?: { page?: number; size?: number }) =>
     http.get<Page<ForumReply>>('/account/replies', { params }).then(r => r.data),
   favorites: (params?: { page?: number; size?: number }) =>
-    http.get<Page<ForumThread>>('/account/favorites', { params }).then(r => r.data)
+    http.get<Page<ForumThread>>('/account/favorites', { params }).then(r => r.data),
+  resourceFavorites: (params?: { page?: number; size?: number }) =>
+    http.get<Page<ResourceFavoriteItem>>('/account/resource-favorites', { params }).then(r => r.data),
+  favoriteResource: (refType: ResourceFavoriteRefType, refId: number) =>
+    http.post<ResourceFavoriteInteraction>(`/account/resource-favorites/${refType}/${refId}`).then(r => r.data),
+  unfavoriteResource: (refType: ResourceFavoriteRefType, refId: number) =>
+    http.delete<ResourceFavoriteInteraction>(`/account/resource-favorites/${refType}/${refId}`).then(r => r.data),
+  notifications: (params?: { page?: number; size?: number }) =>
+    http.get<Page<UserNotification>>('/account/notifications', { params }).then(r => r.data),
+  unreadNotificationCount: () =>
+    http.get<{ count: number }>('/account/notifications/unread-count').then(r => r.data),
+  markNotificationRead: (id: number) =>
+    http.post<UserNotification>(`/account/notifications/${id}/read`).then(r => r.data),
+  markAllNotificationsRead: () =>
+    http.post<{ affected: number }>('/account/notifications/read-all').then(r => r.data)
 }
 
 export const forumApi = {

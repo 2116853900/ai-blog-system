@@ -37,15 +37,18 @@ public class ForumReplyService {
     private final ForumThreadRepository threadRepo;
     private final ForumUserRepository userRepo;
     private final AdminOperationLogRepository operationLogRepo;
+    private final NotificationService notificationService;
 
     public ForumReplyService(ForumReplyRepository replyRepo,
                              ForumThreadRepository threadRepo,
                              ForumUserRepository userRepo,
-                             AdminOperationLogRepository operationLogRepo) {
+                             AdminOperationLogRepository operationLogRepo,
+                             NotificationService notificationService) {
         this.replyRepo = replyRepo;
         this.threadRepo = threadRepo;
         this.userRepo = userRepo;
         this.operationLogRepo = operationLogRepo;
+        this.notificationService = notificationService;
     }
 
     public Page<ForumReply> listByThread(Long threadId, Pageable pageable) {
@@ -140,6 +143,8 @@ public class ForumReplyService {
         thread.setLastReplyUserId(authorId);
         thread.setLastReplyAt(Instant.now());
         threadRepo.save(thread);
+
+        notificationService.notifyReplyCreated(thread, saved);
 
         return saved;
     }

@@ -39,11 +39,15 @@
 | GET  | `/api/skills?q=&tag=&category=` `/api/skills/{id}` | Skill 列表 / 详情 |
 | GET  | `/api/mcps?q=&tag=&category=` `/api/mcps/{id}` | MCP 列表 / 详情 |
 | GET  | `/api/api-stations?q=&tag=` `/api/api-stations/{id}` | 公益 API 站点列表 / 详情 |
+| GET  | `/api/api-stations/{id}/checks?limit=` | 公益 API 站点最近检测历史 |
 | GET  | `/api/comments?type=&refId=` | 某内容下已审核评论 |
 | POST | `/api/comments` | 提交评论（待审核）|
 | POST | `/api/submissions` | 投稿（待审核）|
+| GET  | `/api/resource-favorites/{type}/{id}` | 资源收藏状态与收藏数 |
+| GET/POST/DELETE | `/api/account/resource-favorites/**` | 登录用户的教程、Skill、MCP、API 收藏 |
 | GET/POST/PUT/DELETE | `/api/forum/**` | 论坛板块、帖子、回复；帖子列表支持 `q` 关键词搜索 |
 | GET  | `/api/users/{id}` `/api/users/{id}/threads` `/api/users/{id}/replies` | 用户公开资料 / 公开帖子 / 公开回复 |
+| GET/POST | `/api/account/notifications/**` | 登录用户通知列表、未读数与已读操作 |
 | POST | `/api/auth/register` | 论坛用户注册 |
 | GET  | `/api/auth/me` | 当前登录用户信息 |
 | PUT  | `/api/auth/profile` | 修改论坛用户昵称、头像和简介 |
@@ -52,7 +56,7 @@
 | GET  | `/api/admin/dashboard` | 后台总览：待审核事项、内容规模、社区与 API 状态统计 |
 | *    | `/api/admin/**` | 后台接口（需 `Authorization: Bearer <token>`）|
 
-公益 API 站点状态由 `StatusCheckService` 每 10 分钟自动检测一次（`app.status-check.cron` 可配），也可在后台手动触发。
+公益 API 站点状态由 `StatusCheckService` 每 10 分钟自动检测一次（`app.status-check.cron` 可配），也可在后台手动触发。每次检测都会写入历史记录，前台详情页会展示最近检测结果。
 
 ## 前端启动
 

@@ -2,14 +2,20 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { accountApi, authApi } from '../api'
-import type { ForumReply, ForumThread, Page, UserProfile } from '../api/types'
+import type { ForumReply, ForumThread, Page, ResourceFavoriteItem, UserNotification, UserProfile } from '../api/types'
 import { useAuthStore } from '../stores/auth'
 import { toast } from '../composables/useToast'
 
-type ActivityTab = 'threads' | 'replies' | 'favorites'
-type ActivityItem = ForumThread | ForumReply
+type ActivityTab = 'threads' | 'replies' | 'favorites' | 'resources' | 'notifications'
+type ActivityItem = ForumThread | ForumReply | ResourceFavoriteItem | UserNotification
 
 const ACTIVITY_PAGE_SIZE = 6
+const resourceTypeLabels: Record<ResourceFavoriteItem['refType'], string> = {
+  POST: '教程',
+  SKILL: 'Skill',
+  MCP: 'MCP',
+  API: 'API'
+}
 const auth = useAuthStore()
 const profile = ref<UserProfile | null>(null)
 const loading = ref(false)
@@ -24,14 +30,19 @@ const activityTab = ref<ActivityTab>('threads')
 const activityPage = ref(0)
 const activityLoading = ref(false)
 const activityError = ref('')
+const unreadNotifications = ref(0)
 const myThreads = ref<Page<ForumThread> | null>(null)
 const myReplies = ref<Page<ForumReply> | null>(null)
 const myFavorites = ref<Page<ForumThread> | null>(null)
+const myResourceFavorites = ref<Page<ResourceFavoriteItem> | null>(null)
+const myNotifications = ref<Page<UserNotification> | null>(null)
 
-const currentActivity = computed<Page<ForumThread> | Page<ForumReply> | null>(() => {
+const currentActivity = computed<Page<ForumThread> | Page<ForumReply> | Page<ResourceFavoriteItem> | Page<UserNotification> | null>(() => {
   if (activityTab.value === 'threads') return myThreads.value
   if (activityTab.value === 'replies') return myReplies.value
-  return myFavorites.value
+  if (activityTab.value === 'favorites') return myFavorites.value
+  if (activityTab.value === 'resources') return myResourceFavorites.value
+  return myNotifications.value
 })
 const activityItems = computed<ActivityItem[]>(() => (currentActivity.value?.content || []) as ActivityItem[])
 const activityTotal = computed(() => currentActivity.value?.totalElements || 0)
@@ -51,7 +62,10 @@ async function load() {
         profileForm.bio = p.bio || ''
       }
     }
-    if (profile.value?.id) await loadActivity(0)
+    if (profile.value?.id) {
+      await refreshUnreadNotifications()
+      await loadActivity(0)
+    }
   } catch (e: any) {
     error.value = e?.response?.data?.message || '加载失败'
   } finally {
@@ -131,6 +145,14 @@ function isReply(item: ActivityItem): item is ForumReply {
   return 'threadId' in item && !('title' in item)
 }
 
+function isResourceFavorite(item: ActivityItem): item is ResourceFavoriteItem {
+  return 'refType' in item && 'refId' in item && 'url' in item
+}
+
+function isNotification(item: ActivityItem): item is UserNotification {
+  return 'linkUrl' in item && 'read' in item && 'type' in item
+}
+
 function previewMarkdown(markdown?: string) {
   const text = (markdown || '')
     .replace(/```[\s\S]*?```/g, ' ')
@@ -145,15 +167,25 @@ function previewMarkdown(markdown?: string) {
 }
 
 function activityTitle(item: ActivityItem) {
+  if (isNotification(item)) return item.title
+  if (isResourceFavorite(item)) return item.title
   if (isReply(item)) return `回复 #${item.floorNumber} · 帖子 ${item.threadId}`
   return item.title
 }
 
 function activityPreview(item: ActivityItem) {
+  if (isNotification(item)) return item.message
+  if (isResourceFavorite(item)) return item.description || '暂无描述。'
   return previewMarkdown(item.contentMarkdown)
 }
 
 function activityMeta(item: ActivityItem) {
+  if (isNotification(item)) {
+    return `通知 · ${fmt(item.createdAt)}`
+  }
+  if (isResourceFavorite(item)) {
+    return `${resourceTypeLabels[item.refType]} · 收藏于 ${fmt(item.createdAt)}`
+  }
   if (isReply(item)) {
     return `${fmt(item.createdAt)} · ${item.likeCount} 赞`
   }
@@ -161,7 +193,44 @@ function activityMeta(item: ActivityItem) {
 }
 
 function activityLink(item: ActivityItem) {
+  if (isNotification(item)) return item.linkUrl
+  if (isResourceFavorite(item)) return item.url
   return isReply(item) ? `/forum/threads/${item.threadId}` : `/forum/threads/${item.id}`
+}
+
+async function refreshUnreadNotifications() {
+  if (!profile.value?.id) return
+  try {
+    unreadNotifications.value = (await accountApi.unreadNotificationCount()).count
+  } catch { /* ignore */ }
+}
+
+async function handleActivityClick(item: ActivityItem) {
+  if (!isNotification(item) || item.read) return
+  item.read = true
+  item.readAt = new Date().toISOString()
+  unreadNotifications.value = Math.max(0, unreadNotifications.value - 1)
+  try {
+    await accountApi.markNotificationRead(item.id)
+  } catch {
+    await refreshUnreadNotifications()
+  }
+}
+
+async function markAllNotificationsRead() {
+  try {
+    const result = await accountApi.markAllNotificationsRead()
+    if (myNotifications.value) {
+      myNotifications.value.content.forEach(item => {
+        item.read = true
+        item.readAt = item.readAt || new Date().toISOString()
+      })
+    }
+    unreadNotifications.value = 0
+    toast.success(result.affected > 0 ? '通知已全部标记为已读' : '暂无未读通知')
+  } catch (e: any) {
+    toast.error(e?.response?.data?.message || '操作失败')
+  }
 }
 
 async function selectActivity(tab: ActivityTab) {
@@ -182,8 +251,13 @@ async function loadActivity(nextPage = activityPage.value) {
       myThreads.value = await accountApi.threads(params)
     } else if (activityTab.value === 'replies') {
       myReplies.value = await accountApi.replies(params)
-    } else {
+    } else if (activityTab.value === 'favorites') {
       myFavorites.value = await accountApi.favorites(params)
+    } else if (activityTab.value === 'resources') {
+      myResourceFavorites.value = await accountApi.resourceFavorites(params)
+    } else {
+      myNotifications.value = await accountApi.notifications(params)
+      await refreshUnreadNotifications()
     }
   } catch (e: any) {
     activityError.value = e?.response?.data?.message || '动态加载失败'
@@ -269,7 +343,17 @@ onMounted(load)
           <p class="mono dim">// activity</p>
           <h2>我的动态</h2>
         </div>
-        <span class="muted mono">{{ activityTotal }} items</span>
+        <div class="activity-head-actions">
+          <button
+            v-if="activityTab === 'notifications' && unreadNotifications > 0"
+            class="btn btn-sm"
+            type="button"
+            @click="markAllNotificationsRead"
+          >
+            全部已读
+          </button>
+          <span class="muted mono">{{ activityTotal }} items</span>
+        </div>
       </div>
 
       <div class="activity-tabs" role="tablist" aria-label="账号动态">
@@ -301,7 +385,28 @@ onMounted(load)
           :aria-selected="activityTab === 'favorites'"
           @click="selectActivity('favorites')"
         >
-          我的收藏
+          帖子收藏
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activityTab === 'resources' }"
+          type="button"
+          role="tab"
+          :aria-selected="activityTab === 'resources'"
+          @click="selectActivity('resources')"
+        >
+          资源收藏
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activityTab === 'notifications' }"
+          type="button"
+          role="tab"
+          :aria-selected="activityTab === 'notifications'"
+          @click="selectActivity('notifications')"
+        >
+          通知
+          <span v-if="unreadNotifications" class="tab-count mono">{{ unreadNotifications }}</span>
         </button>
       </div>
 
@@ -313,11 +418,15 @@ onMounted(load)
           v-for="item in activityItems"
           :key="`${activityTab}-${item.id}`"
           class="activity-item"
+          :class="{ unread: isNotification(item) && !item.read }"
           :to="activityLink(item)"
+          @click="handleActivityClick(item)"
         >
           <div class="activity-title-row">
             <strong>{{ activityTitle(item) }}</strong>
-            <span v-if="!isReply(item) && activityTab === 'favorites'" class="chip chip-active">收藏</span>
+            <span v-if="isNotification(item) && !item.read" class="chip chip-active">未读</span>
+            <span v-else-if="isResourceFavorite(item)" class="chip chip-active">{{ resourceTypeLabels[item.refType] }}</span>
+            <span v-else-if="!isReply(item) && activityTab === 'favorites'" class="chip chip-active">收藏</span>
           </div>
           <span class="activity-preview muted">{{ activityPreview(item) }}</span>
           <span class="activity-meta mono dim">{{ activityMeta(item) }}</span>
@@ -363,6 +472,12 @@ onMounted(load)
   margin-bottom: 14px;
 }
 .activity-head h2 { margin: 0; }
+.activity-head-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
 .activity-tabs {
   display: flex;
   gap: 8px;
@@ -385,6 +500,15 @@ onMounted(load)
   border-color: var(--primary);
   color: var(--primary);
   background: var(--primary-soft);
+}
+.tab-count {
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: 800;
 }
 .activity-state {
   border: 1px dashed var(--border-strong);
@@ -412,6 +536,10 @@ onMounted(load)
   border-color: var(--primary-dim);
   background: var(--bg-inset);
   text-decoration: none;
+}
+.activity-item.unread {
+  border-color: var(--primary-dim);
+  background: color-mix(in srgb, var(--primary-soft) 58%, var(--bg-soft));
 }
 .activity-title-row {
   display: flex;
@@ -449,6 +577,9 @@ onMounted(load)
   .activity-pager {
     flex-direction: column;
     align-items: stretch;
+  }
+  .activity-head-actions {
+    justify-content: flex-start;
   }
   .activity-title-row {
     align-items: flex-start;

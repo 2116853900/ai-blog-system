@@ -2,16 +2,18 @@
 import { onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { publicApi } from '../api'
-import type { ApiStation } from '../api/types'
+import type { ApiStation, ApiStationStatusCheck } from '../api/types'
 import CommentSection from '../components/CommentSection.vue'
 import CopyButton from '../components/CopyButton.vue'
 import LinkedDiscussions from '../components/LinkedDiscussions.vue'
+import ResourceFavoriteButton from '../components/ResourceFavoriteButton.vue'
 import Skeleton from '../components/Skeleton.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import TagList from '../components/TagList.vue'
 
 const route = useRoute()
 const station = ref<ApiStation | null>(null)
+const checks = ref<ApiStationStatusCheck[]>([])
 const loading = ref(true)
 const notFound = ref(false)
 
@@ -27,8 +29,19 @@ async function load() {
   loading.value = true
   notFound.value = false
   station.value = null
+  checks.value = []
   try {
-    station.value = await publicApi.apiStation(Number(route.params.id))
+    const id = Number(route.params.id)
+    const [stationResult, checksResult] = await Promise.allSettled([
+      publicApi.apiStation(id),
+      publicApi.apiStationChecks(id, { limit: 12 })
+    ])
+    if (stationResult.status === 'rejected') {
+      notFound.value = true
+      return
+    }
+    station.value = stationResult.value
+    checks.value = checksResult.status === 'fulfilled' ? checksResult.value : []
   } catch {
     notFound.value = true
   } finally {
@@ -64,6 +77,9 @@ watch(() => route.params.id, load)
           <h1 class="mono">{{ station.name }}</h1>
           <p v-if="station.lastCheckedAt" class="muted mono checked">检测于 {{ fmtTime(station.lastCheckedAt) }}</p>
         </div>
+        <div class="head-actions">
+          <ResourceFavoriteButton ref-type="API" :ref-id="station.id" />
+        </div>
       </header>
 
       <p v-if="station.description" class="desc">{{ station.description }}</p>
@@ -86,6 +102,24 @@ watch(() => route.params.id, load)
       <TagList :tags="station.tags" />
 
       <hr class="sep" />
+      <section class="history">
+        <div class="section-head">
+          <h2 class="mono">最近检测</h2>
+          <span v-if="checks.length" class="muted mono">{{ checks.length }} 条</span>
+        </div>
+        <div v-if="checks.length" class="check-list">
+          <div v-for="check in checks" :key="check.id" class="check-row">
+            <StatusBadge :status="check.status" :latency-ms="check.latencyMs" />
+            <div class="check-meta">
+              <span class="mono">{{ fmtTime(check.checkedAt) }}</span>
+              <span v-if="check.errorMessage" class="muted">{{ check.errorMessage }}</span>
+            </div>
+          </div>
+        </div>
+        <p v-else class="muted empty-history">暂无检测历史。</p>
+      </section>
+
+      <hr class="sep" />
       <LinkedDiscussions ref-type="API" :ref-id="station.id" :source-title="station.name" />
 
       <hr class="sep" />
@@ -103,6 +137,7 @@ watch(() => route.params.id, load)
 .detail-card { padding: 26px; }
 .detail-head { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 16px; }
 .detail-head h1 { margin: 12px 0 4px; font-size: 30px; line-height: 1.25; }
+.head-actions { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 10px; }
 .checked { margin: 0; font-size: 12px; }
 .desc { margin: 0 0 18px; line-height: 1.85; color: var(--text-soft); }
 .field { margin-bottom: 18px; }
@@ -116,8 +151,28 @@ watch(() => route.params.id, load)
   border: 1px solid var(--border);
   color: var(--text-soft);
 }
+.history { display: flex; flex-direction: column; gap: 12px; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.section-head h2 { margin: 0; font-size: 18px; line-height: 1.4; }
+.check-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.check-row {
+  display: grid;
+  grid-template-columns: minmax(110px, max-content) 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--border);
+}
+.check-row:last-child { border-bottom: none; }
+.check-meta { min-width: 0; display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.check-meta span { overflow-wrap: anywhere; }
+.empty-history { margin: 0; font-size: 13px; }
 .sep { border: none; border-top: 1px dashed var(--border-strong); margin: 28px 0; }
 @media (max-width: 640px) {
+  .detail-head { flex-direction: column; }
+  .head-actions { justify-content: flex-start; }
   .detail-card { padding: 20px; }
+  .check-row { grid-template-columns: 1fr; align-items: flex-start; }
 }
 </style>
