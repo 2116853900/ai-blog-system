@@ -1,19 +1,34 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { adminApi } from '../../api'
-import type { Submission } from '../../api/types'
+import type { Page, Submission } from '../../api/types'
 
-const items = ref<Submission[]>([])
 const loading = ref(false)
 const filter = ref<string>('PENDING')
+const page = ref(0)
+const size = 20
+const pageData = ref<Page<Submission> | null>(null)
+
+const items = computed(() => pageData.value?.content ?? [])
 
 const typeLabels: Record<string, string> = { SKILL: 'AI Skill', MCP: 'MCP', API: '公益 API' }
 const statusLabels: Record<string, string> = { PENDING: '待审核', APPROVED: '已通过', REJECTED: '已拒绝' }
 
 async function load() {
   loading.value = true
-  try { items.value = await adminApi.submissions(filter.value || undefined) }
+  try {
+    pageData.value = await adminApi.submissions({
+      status: filter.value || undefined,
+      page: page.value,
+      size
+    })
+  }
   finally { loading.value = false }
+}
+
+function applyFilter() {
+  page.value = 0
+  load()
 }
 
 async function approve(s: Submission) {
@@ -35,6 +50,20 @@ function parse(json: string): Record<string, string> {
 }
 function fmt(d: string) { return new Date(d).toLocaleString('zh-CN') }
 
+function previousPage() {
+  if (!pageData.value?.first) {
+    page.value -= 1
+    load()
+  }
+}
+
+function nextPage() {
+  if (!pageData.value?.last) {
+    page.value += 1
+    load()
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -42,7 +71,7 @@ onMounted(load)
   <div>
     <div class="head">
       <h1 class="section-title">投稿审核</h1>
-      <select class="input filter" v-model="filter" @change="load">
+      <select class="input filter" v-model="filter" @change="applyFilter">
         <option value="PENDING">待审核</option>
         <option value="APPROVED">已通过</option>
         <option value="REJECTED">已拒绝</option>
@@ -81,6 +110,12 @@ onMounted(load)
         <button class="btn btn-sm btn-danger" @click="remove(s)">删除</button>
       </div>
     </div>
+
+    <div v-if="pageData" class="pager">
+      <button class="btn btn-sm" :disabled="pageData.first" @click="previousPage">上一页</button>
+      <span class="muted">第 {{ pageData.number + 1 }} / {{ Math.max(pageData.totalPages, 1) }} 页，共 {{ pageData.totalElements }} 条</span>
+      <button class="btn btn-sm" :disabled="pageData.last" @click="nextPage">下一页</button>
+    </div>
   </div>
 </template>
 
@@ -95,4 +130,5 @@ onMounted(load)
 .kv .k { width: 140px; font-size: 13px; }
 .contact { font-size: 13px; }
 .s-foot { display: flex; gap: 8px; margin-top: 6px; }
+.pager { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
 </style>

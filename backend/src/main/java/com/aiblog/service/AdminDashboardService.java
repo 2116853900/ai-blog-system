@@ -16,7 +16,11 @@ import com.aiblog.repository.McpRepository;
 import com.aiblog.repository.PostRepository;
 import com.aiblog.repository.SkillRepository;
 import com.aiblog.repository.SubmissionRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import java.util.function.LongSupplier;
 
 @Service
 public class AdminDashboardService {
@@ -31,7 +35,12 @@ public class AdminDashboardService {
     private final ForumUserRepository forumUserRepo;
     private final ForumThreadRepository forumThreadRepo;
     private final ForumReplyRepository forumReplyRepo;
+    private final long cacheTtlMs;
+    private final LongSupplier currentTimeMillis;
 
+    private volatile CachedOverview cachedOverview;
+
+    @Autowired
     public AdminDashboardService(CommentRepository commentRepo,
                                  SubmissionRepository submissionRepo,
                                  ContentReportRepository reportRepo,
@@ -41,7 +50,34 @@ public class AdminDashboardService {
                                  ApiStationRepository apiStationRepo,
                                  ForumUserRepository forumUserRepo,
                                  ForumThreadRepository forumThreadRepo,
-                                 ForumReplyRepository forumReplyRepo) {
+                                 ForumReplyRepository forumReplyRepo,
+                                 @Value("${app.admin-dashboard.cache-ttl-ms:5000}") long cacheTtlMs) {
+        this(commentRepo,
+                submissionRepo,
+                reportRepo,
+                postRepo,
+                skillRepo,
+                mcpRepo,
+                apiStationRepo,
+                forumUserRepo,
+                forumThreadRepo,
+                forumReplyRepo,
+                cacheTtlMs,
+                System::currentTimeMillis);
+    }
+
+    AdminDashboardService(CommentRepository commentRepo,
+                          SubmissionRepository submissionRepo,
+                          ContentReportRepository reportRepo,
+                          PostRepository postRepo,
+                          SkillRepository skillRepo,
+                          McpRepository mcpRepo,
+                          ApiStationRepository apiStationRepo,
+                          ForumUserRepository forumUserRepo,
+                          ForumThreadRepository forumThreadRepo,
+                          ForumReplyRepository forumReplyRepo,
+                          long cacheTtlMs,
+                          LongSupplier currentTimeMillis) {
         this.commentRepo = commentRepo;
         this.submissionRepo = submissionRepo;
         this.reportRepo = reportRepo;
@@ -52,9 +88,37 @@ public class AdminDashboardService {
         this.forumUserRepo = forumUserRepo;
         this.forumThreadRepo = forumThreadRepo;
         this.forumReplyRepo = forumReplyRepo;
+        this.cacheTtlMs = Math.max(0, cacheTtlMs);
+        this.currentTimeMillis = currentTimeMillis;
     }
 
     public AdminDashboardResponse overview() {
+        if (cacheTtlMs <= 0) {
+            return loadOverview();
+        }
+
+        long now = currentTimeMillis.getAsLong();
+        CachedOverview cached = cachedOverview;
+        if (cached != null && cached.expiresAtMs() > now) {
+            return cached.response();
+        }
+
+        synchronized (this) {
+            cached = cachedOverview;
+            if (cached != null && cached.expiresAtMs() > now) {
+                return cached.response();
+            }
+            AdminDashboardResponse response = loadOverview();
+            cachedOverview = new CachedOverview(response, now + cacheTtlMs);
+            return response;
+        }
+    }
+
+    public void evictCache() {
+        cachedOverview = null;
+    }
+
+    private AdminDashboardResponse loadOverview() {
         return new AdminDashboardResponse(
                 new AdminDashboardResponse.Moderation(
                         commentRepo.countByApprovedFalseAndStatus(Comment.CommentStatus.NORMAL),
@@ -80,5 +144,8 @@ public class AdminDashboardService {
                         apiStationRepo.countByStatus(ApiStation.Status.UNKNOWN)
                 )
         );
+    }
+
+    private record CachedOverview(AdminDashboardResponse response, long expiresAtMs) {
     }
 }

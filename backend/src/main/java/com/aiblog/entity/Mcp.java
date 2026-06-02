@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "mcp")
+@Table(name = "mcp", indexes = {
+        @Index(name = "idx_mcp_created", columnList = "createdAt")
+})
 public class Mcp {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

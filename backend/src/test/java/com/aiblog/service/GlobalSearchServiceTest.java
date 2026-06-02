@@ -1,5 +1,8 @@
 package com.aiblog.service;
 
+import com.aiblog.cache.CacheProperties;
+import com.aiblog.cache.HybridCacheService;
+import com.aiblog.cache.PublicContentCacheService;
 import com.aiblog.dto.GlobalSearchResponse;
 import com.aiblog.entity.ApiStation;
 import com.aiblog.entity.ForumThread;
@@ -11,6 +14,7 @@ import com.aiblog.repository.ForumThreadRepository;
 import com.aiblog.repository.McpRepository;
 import com.aiblog.repository.PostRepository;
 import com.aiblog.repository.SkillRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,7 +49,13 @@ class GlobalSearchServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new GlobalSearchService(postRepo, skillRepo, mcpRepo, apiRepo, threadRepo);
+        CacheProperties cacheProperties = new CacheProperties();
+        cacheProperties.setKeyPrefix("test-search");
+        cacheProperties.setRedisEnabled(false);
+        PublicContentCacheService cacheService = new PublicContentCacheService(
+                new HybridCacheService(cacheProperties, new ObjectMapper()),
+                cacheProperties);
+        service = new GlobalSearchService(postRepo, skillRepo, mcpRepo, apiRepo, threadRepo, cacheService);
     }
 
     @Test

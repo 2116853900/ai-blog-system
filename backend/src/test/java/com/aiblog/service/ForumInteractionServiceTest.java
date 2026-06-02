@@ -1,8 +1,6 @@
 package com.aiblog.service;
 
 import com.aiblog.dto.ForumInteractionResponse;
-import com.aiblog.entity.ForumPostFavorite;
-import com.aiblog.entity.ForumPostLike;
 import com.aiblog.entity.ForumThread;
 import com.aiblog.repository.ForumPostFavoriteRepository;
 import com.aiblog.repository.ForumPostLikeRepository;
@@ -57,12 +55,17 @@ class ForumInteractionServiceTest {
         thread.setContentMarkdown("content");
         thread.setStatus(ForumThread.ThreadStatus.NORMAL);
         lenient().when(threadRepo.findById(THREAD_ID)).thenReturn(Optional.of(thread));
+        lenient().when(threadRepo.existsByIdAndStatusIn(any(), any())).thenReturn(true);
     }
 
     @Test
     void likeIsIdempotentAndIncrementsCountOnce() {
-        when(likeRepo.existsByPostIdAndUserId(THREAD_ID, USER_ID))
-                .thenReturn(false, true, true, true);
+        when(likeRepo.insertIgnore(THREAD_ID, USER_ID)).thenReturn(1, 0);
+        when(likeRepo.existsByPostIdAndUserId(THREAD_ID, USER_ID)).thenReturn(true);
+        when(threadRepo.incrementLikeCount(THREAD_ID)).thenAnswer(invocation -> {
+            thread.setLikeCount(thread.getLikeCount() + 1);
+            return 1;
+        });
 
         ForumInteractionResponse first = service.like(THREAD_ID, USER_ID);
         ForumInteractionResponse second = service.like(THREAD_ID, USER_ID);
@@ -70,32 +73,38 @@ class ForumInteractionServiceTest {
         assertThat(first.isLiked()).isTrue();
         assertThat(second.isLiked()).isTrue();
         assertThat(thread.getLikeCount()).isEqualTo(1);
-        verify(likeRepo, times(1)).save(any(ForumPostLike.class));
-        verify(threadRepo, times(1)).save(thread);
+        verify(likeRepo, times(2)).insertIgnore(THREAD_ID, USER_ID);
+        verify(threadRepo, times(1)).incrementLikeCount(THREAD_ID);
+        verify(threadRepo, never()).save(thread);
     }
 
     @Test
     void unlikeIsIdempotentAndDoesNotMakeCountNegative() {
-        ForumPostLike like = new ForumPostLike();
-        like.setPostId(THREAD_ID);
-        like.setUserId(USER_ID);
-        thread.setLikeCount(0);
-        when(likeRepo.findByPostIdAndUserId(THREAD_ID, USER_ID))
-                .thenReturn(Optional.of(like), Optional.empty());
+        thread.setLikeCount(1);
+        when(likeRepo.deleteByPostIdAndUserId(THREAD_ID, USER_ID)).thenReturn(1, 0);
         when(likeRepo.existsByPostIdAndUserId(THREAD_ID, USER_ID)).thenReturn(false);
+        when(threadRepo.decrementLikeCount(THREAD_ID)).thenAnswer(invocation -> {
+            thread.setLikeCount(Math.max(0, thread.getLikeCount() - 1));
+            return 1;
+        });
 
         service.unlike(THREAD_ID, USER_ID);
         service.unlike(THREAD_ID, USER_ID);
 
         assertThat(thread.getLikeCount()).isZero();
-        verify(likeRepo, times(1)).delete(like);
-        verify(threadRepo, times(1)).save(thread);
+        verify(likeRepo, times(2)).deleteByPostIdAndUserId(THREAD_ID, USER_ID);
+        verify(threadRepo, times(1)).decrementLikeCount(THREAD_ID);
+        verify(threadRepo, never()).save(thread);
     }
 
     @Test
     void favoriteIsIdempotentAndIncrementsCountOnce() {
-        when(favoriteRepo.existsByPostIdAndUserId(THREAD_ID, USER_ID))
-                .thenReturn(false, true, true, true);
+        when(favoriteRepo.insertIgnore(THREAD_ID, USER_ID)).thenReturn(1, 0);
+        when(favoriteRepo.existsByPostIdAndUserId(THREAD_ID, USER_ID)).thenReturn(true);
+        when(threadRepo.incrementFavoriteCount(THREAD_ID)).thenAnswer(invocation -> {
+            thread.setFavoriteCount(thread.getFavoriteCount() + 1);
+            return 1;
+        });
 
         ForumInteractionResponse first = service.favorite(THREAD_ID, USER_ID);
         ForumInteractionResponse second = service.favorite(THREAD_ID, USER_ID);
@@ -103,20 +112,22 @@ class ForumInteractionServiceTest {
         assertThat(first.isFavorited()).isTrue();
         assertThat(second.isFavorited()).isTrue();
         assertThat(thread.getFavoriteCount()).isEqualTo(1);
-        verify(favoriteRepo, times(1)).save(any(ForumPostFavorite.class));
-        verify(threadRepo, times(1)).save(thread);
+        verify(favoriteRepo, times(2)).insertIgnore(THREAD_ID, USER_ID);
+        verify(threadRepo, times(1)).incrementFavoriteCount(THREAD_ID);
+        verify(threadRepo, never()).save(thread);
     }
 
     @Test
     void unfavoriteWithoutExistingFavoriteDoesNotChangeCount() {
         thread.setFavoriteCount(0);
-        when(favoriteRepo.findByPostIdAndUserId(THREAD_ID, USER_ID)).thenReturn(Optional.empty());
+        when(favoriteRepo.deleteByPostIdAndUserId(THREAD_ID, USER_ID)).thenReturn(0);
 
         ForumInteractionResponse response = service.unfavorite(THREAD_ID, USER_ID);
 
         assertThat(response.isFavorited()).isFalse();
         assertThat(thread.getFavoriteCount()).isZero();
-        verify(favoriteRepo, never()).delete(any());
+        verify(favoriteRepo, times(1)).deleteByPostIdAndUserId(THREAD_ID, USER_ID);
+        verify(threadRepo, never()).decrementFavoriteCount(THREAD_ID);
         verify(threadRepo, never()).save(thread);
     }
 

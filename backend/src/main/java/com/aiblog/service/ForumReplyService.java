@@ -117,11 +117,11 @@ public class ForumReplyService {
 
     @Transactional
     public ForumReply create(Long threadId, ReplyRequest req, Long authorId) {
-        ForumThread thread = threadRepo.findById(threadId)
+        ForumThread thread = threadRepo.findByIdForUpdate(threadId)
                 .orElseThrow(() -> new IllegalArgumentException("帖子不存在"));
 
-        // 计算楼层号
-        int floor = replyRepo.countByThreadIdAndStatus(threadId, ForumReply.ReplyStatus.NORMAL) + 1;
+        // 同一帖子内串行分配楼层，避免高并发回复时重复楼层号。
+        int floor = replyRepo.findMaxFloorNumberByThreadId(threadId) + 1;
 
         ForumReply reply = new ForumReply();
         reply.setThreadId(threadId);
@@ -139,10 +139,7 @@ public class ForumReplyService {
         ForumReply saved = replyRepo.save(reply);
 
         // 更新帖子的回复计数和最后回复信息
-        thread.setReplyCount(thread.getReplyCount() + 1);
-        thread.setLastReplyUserId(authorId);
-        thread.setLastReplyAt(Instant.now());
-        threadRepo.save(thread);
+        threadRepo.incrementReplyCount(threadId, authorId, Instant.now());
 
         notificationService.notifyReplyCreated(thread, saved);
 
@@ -258,19 +255,11 @@ public class ForumReplyService {
     }
 
     private void decrementThreadReplyCount(Long threadId) {
-        threadRepo.findById(threadId).ifPresent(t -> {
-            t.setReplyCount(Math.max(0, t.getReplyCount() - 1));
-            threadRepo.save(t);
-        });
+        threadRepo.decrementReplyCount(threadId);
     }
 
     private void incrementThreadReplyCount(Long threadId, Long authorId) {
-        threadRepo.findById(threadId).ifPresent(t -> {
-            t.setReplyCount(t.getReplyCount() + 1);
-            t.setLastReplyUserId(authorId);
-            t.setLastReplyAt(Instant.now());
-            threadRepo.save(t);
-        });
+        threadRepo.incrementReplyCount(threadId, authorId, Instant.now());
     }
 
     private void recordOperation(String operatorUsername, String action, Long targetId, String detail) {

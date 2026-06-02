@@ -18,7 +18,8 @@ import java.time.Instant;
         uniqueConstraints = @UniqueConstraint(name = "uk_resource_favorite_user_ref", columnNames = {"user_id", "ref_type", "ref_id"}),
         indexes = {
                 @Index(name = "idx_resource_favorite_user", columnList = "user_id"),
-                @Index(name = "idx_resource_favorite_ref", columnList = "ref_type,ref_id")
+                @Index(name = "idx_resource_favorite_ref", columnList = "ref_type,ref_id"),
+                @Index(name = "idx_resource_favorite_user_created", columnList = "user_id,created_at")
         })
 public class ResourceFavorite {
 

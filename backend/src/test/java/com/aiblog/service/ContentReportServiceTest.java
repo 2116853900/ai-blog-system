@@ -101,8 +101,9 @@ class ContentReportServiceTest {
         assertThat(report.getReasonText()).isEqualTo("广告刷屏");
         assertThat(report.getContentSnapshot()).isEqualTo("# 违规标题\n\n违规内容");
         assertThat(report.getStatus()).isEqualTo(ContentReport.ReportStatus.PENDING);
-        assertThat(thread.getReportCount()).isEqualTo(3);
-        verify(threadRepo).save(thread);
+        assertThat(thread.getReportCount()).isEqualTo(2);
+        verify(threadRepo).incrementReportCount(11L);
+        verify(threadRepo, never()).save(any(ForumThread.class));
     }
 
     @Test

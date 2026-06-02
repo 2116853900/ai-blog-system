@@ -4,7 +4,10 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "api_station")
+@Table(name = "api_station", indexes = {
+        @Index(name = "idx_api_station_name", columnList = "name"),
+        @Index(name = "idx_api_station_status", columnList = "status")
+})
 public class ApiStation {
     public enum Status { UP, DOWN, UNKNOWN }
 

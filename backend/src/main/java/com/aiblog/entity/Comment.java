@@ -4,7 +4,11 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "comment")
+@Table(name = "comment", indexes = {
+        @Index(name = "idx_comment_ref_visible", columnList = "refType,refId,approved,status,createdAt"),
+        @Index(name = "idx_comment_moderation", columnList = "approved,status,createdAt"),
+        @Index(name = "idx_comment_status_created", columnList = "status,createdAt")
+})
 public class Comment {
     /** 评论所属内容类型 */
     public enum RefType { POST, SKILL, MCP, API }

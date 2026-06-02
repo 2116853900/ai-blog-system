@@ -1,8 +1,6 @@
 package com.aiblog.service;
 
 import com.aiblog.dto.ForumInteractionResponse;
-import com.aiblog.entity.ForumPostFavorite;
-import com.aiblog.entity.ForumPostLike;
 import com.aiblog.entity.ForumThread;
 import com.aiblog.repository.ForumPostFavoriteRepository;
 import com.aiblog.repository.ForumPostLikeRepository;
@@ -51,52 +49,44 @@ public class ForumInteractionService {
 
     @Transactional
     public ForumInteractionResponse like(Long threadId, Long userId) {
-        ForumThread thread = findInteractableThread(threadId);
-        if (!likeRepo.existsByPostIdAndUserId(threadId, userId)) {
-            ForumPostLike like = new ForumPostLike();
-            like.setPostId(threadId);
-            like.setUserId(userId);
-            likeRepo.save(like);
-            thread.setLikeCount(thread.getLikeCount() + 1);
-            threadRepo.save(thread);
+        ensureInteractableThread(threadId);
+        if (likeRepo.insertIgnore(threadId, userId) > 0) {
+            threadRepo.incrementLikeCount(threadId);
         }
         return getInteraction(threadId, userId);
     }
 
     @Transactional
     public ForumInteractionResponse unlike(Long threadId, Long userId) {
-        ForumThread thread = findInteractableThread(threadId);
-        likeRepo.findByPostIdAndUserId(threadId, userId).ifPresent(like -> {
-            likeRepo.delete(like);
-            thread.setLikeCount(Math.max(0, thread.getLikeCount() - 1));
-            threadRepo.save(thread);
-        });
+        ensureInteractableThread(threadId);
+        if (likeRepo.deleteByPostIdAndUserId(threadId, userId) > 0) {
+            threadRepo.decrementLikeCount(threadId);
+        }
         return getInteraction(threadId, userId);
     }
 
     @Transactional
     public ForumInteractionResponse favorite(Long threadId, Long userId) {
-        ForumThread thread = findInteractableThread(threadId);
-        if (!favoriteRepo.existsByPostIdAndUserId(threadId, userId)) {
-            ForumPostFavorite favorite = new ForumPostFavorite();
-            favorite.setPostId(threadId);
-            favorite.setUserId(userId);
-            favoriteRepo.save(favorite);
-            thread.setFavoriteCount(thread.getFavoriteCount() + 1);
-            threadRepo.save(thread);
+        ensureInteractableThread(threadId);
+        if (favoriteRepo.insertIgnore(threadId, userId) > 0) {
+            threadRepo.incrementFavoriteCount(threadId);
         }
         return getInteraction(threadId, userId);
     }
 
     @Transactional
     public ForumInteractionResponse unfavorite(Long threadId, Long userId) {
-        ForumThread thread = findInteractableThread(threadId);
-        favoriteRepo.findByPostIdAndUserId(threadId, userId).ifPresent(favorite -> {
-            favoriteRepo.delete(favorite);
-            thread.setFavoriteCount(Math.max(0, thread.getFavoriteCount() - 1));
-            threadRepo.save(thread);
-        });
+        ensureInteractableThread(threadId);
+        if (favoriteRepo.deleteByPostIdAndUserId(threadId, userId) > 0) {
+            threadRepo.decrementFavoriteCount(threadId);
+        }
         return getInteraction(threadId, userId);
+    }
+
+    private void ensureInteractableThread(Long threadId) {
+        if (!threadRepo.existsByIdAndStatusIn(threadId, INTERACTABLE_STATUSES)) {
+            throw new IllegalArgumentException("帖子不存在或不可互动");
+        }
     }
 
     private ForumThread findInteractableThread(Long threadId) {

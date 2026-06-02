@@ -22,7 +22,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,9 +44,11 @@ class AdminDashboardServiceTest {
     @Mock private ForumReplyRepository forumReplyRepo;
 
     private AdminDashboardService service;
+    private AtomicLong now;
 
     @BeforeEach
     void setUp() {
+        now = new AtomicLong(1_000);
         service = new AdminDashboardService(
                 commentRepo,
                 submissionRepo,
@@ -54,7 +59,9 @@ class AdminDashboardServiceTest {
                 apiStationRepo,
                 forumUserRepo,
                 forumThreadRepo,
-                forumReplyRepo
+                forumReplyRepo,
+                5_000,
+                now::get
         );
     }
 
@@ -96,5 +103,62 @@ class AdminDashboardServiceTest {
         verify(commentRepo).countByApprovedFalseAndStatus(Comment.CommentStatus.NORMAL);
         verify(submissionRepo).countByStatus(Submission.Status.PENDING);
         verify(reportRepo).countByStatus(ContentReport.ReportStatus.PENDING);
+    }
+
+    @Test
+    void overviewReusesCachedResponseWithinTtl() {
+        stubOverviewCounts(2L);
+
+        AdminDashboardResponse first = service.overview();
+        AdminDashboardResponse second = service.overview();
+
+        assertThat(second).isSameAs(first);
+        verify(commentRepo, times(1)).countByApprovedFalseAndStatus(Comment.CommentStatus.NORMAL);
+        verify(postRepo, times(1)).count();
+    }
+
+    @Test
+    void overviewReloadsAfterCacheExpires() {
+        stubOverviewCounts(2L);
+        AdminDashboardResponse first = service.overview();
+        now.addAndGet(5_001);
+        when(commentRepo.countByApprovedFalseAndStatus(Comment.CommentStatus.NORMAL)).thenReturn(9L);
+
+        AdminDashboardResponse second = service.overview();
+
+        assertThat(first.moderation().pendingComments()).isEqualTo(2L);
+        assertThat(second.moderation().pendingComments()).isEqualTo(9L);
+        verify(commentRepo, times(2)).countByApprovedFalseAndStatus(Comment.CommentStatus.NORMAL);
+    }
+
+    @Test
+    void evictCacheForcesReloadBeforeTtlExpires() {
+        stubOverviewCounts(2L);
+        service.overview();
+        service.evictCache();
+        when(commentRepo.countByApprovedFalseAndStatus(Comment.CommentStatus.NORMAL)).thenReturn(6L);
+
+        AdminDashboardResponse response = service.overview();
+
+        assertThat(response.moderation().pendingComments()).isEqualTo(6L);
+        verify(commentRepo, times(2)).countByApprovedFalseAndStatus(Comment.CommentStatus.NORMAL);
+    }
+
+    private void stubOverviewCounts(long pendingComments) {
+        when(commentRepo.countByApprovedFalseAndStatus(Comment.CommentStatus.NORMAL)).thenReturn(pendingComments);
+        when(submissionRepo.countByStatus(Submission.Status.PENDING)).thenReturn(3L);
+        when(reportRepo.countByStatus(ContentReport.ReportStatus.PENDING)).thenReturn(4L);
+        when(postRepo.count()).thenReturn(5L);
+        when(skillRepo.count()).thenReturn(6L);
+        when(mcpRepo.count()).thenReturn(7L);
+        when(apiStationRepo.count()).thenReturn(8L);
+        when(forumUserRepo.count()).thenReturn(9L);
+        when(forumUserRepo.countByStatus(ForumUser.Status.ACTIVE)).thenReturn(8L);
+        when(forumUserRepo.countByStatus(ForumUser.Status.BANNED)).thenReturn(1L);
+        when(forumThreadRepo.count()).thenReturn(10L);
+        when(forumReplyRepo.count()).thenReturn(11L);
+        when(apiStationRepo.countByStatus(ApiStation.Status.UP)).thenReturn(4L);
+        when(apiStationRepo.countByStatus(ApiStation.Status.DOWN)).thenReturn(2L);
+        when(apiStationRepo.countByStatus(ApiStation.Status.UNKNOWN)).thenReturn(2L);
     }
 }

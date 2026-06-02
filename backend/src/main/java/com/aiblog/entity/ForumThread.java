@@ -7,7 +7,9 @@ import java.time.Instant;
 @Table(name = "forum_thread", indexes = {
     @Index(name = "idx_category_status", columnList = "categoryId,status,lastReplyAt"),
     @Index(name = "idx_author", columnList = "authorId"),
-    @Index(name = "idx_linked", columnList = "linkedRefType,linkedRefId")
+    @Index(name = "idx_linked", columnList = "linkedRefType,linkedRefId"),
+    @Index(name = "idx_status_last_reply", columnList = "status,lastReplyAt"),
+    @Index(name = "idx_author_status_created", columnList = "authorId,status,createdAt")
 })
 public class ForumThread {
 

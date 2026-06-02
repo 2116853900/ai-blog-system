@@ -7,6 +7,9 @@ public class GlobalSearchGroupResponse {
     private String label;
     private List<GlobalSearchItemResponse> items;
 
+    public GlobalSearchGroupResponse() {
+    }
+
     public GlobalSearchGroupResponse(String type, String label, List<GlobalSearchItemResponse> items) {
         this.type = type;
         this.label = label;

@@ -262,15 +262,9 @@ public class ContentReportService {
 
     private void incrementReportCount(ContentReport.TargetType targetType, Long targetId) {
         if (targetType == ContentReport.TargetType.POST) {
-            threadRepo.findById(targetId).ifPresent(thread -> {
-                thread.setReportCount(thread.getReportCount() + 1);
-                threadRepo.save(thread);
-            });
+            threadRepo.incrementReportCount(targetId);
         } else if (targetType == ContentReport.TargetType.REPLY) {
-            replyRepo.findById(targetId).ifPresent(reply -> {
-                reply.setReportCount(reply.getReportCount() + 1);
-                replyRepo.save(reply);
-            });
+            replyRepo.incrementReportCount(targetId);
         }
     }
 

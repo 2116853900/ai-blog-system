@@ -35,15 +35,18 @@ public class ForumThreadService {
     private final ForumCategoryRepository categoryRepo;
     private final ForumUserRepository userRepo;
     private final AdminOperationLogRepository operationLogRepo;
+    private final ForumViewCountBuffer viewCountBuffer;
 
     public ForumThreadService(ForumThreadRepository threadRepo,
                               ForumCategoryRepository categoryRepo,
                               ForumUserRepository userRepo,
-                              AdminOperationLogRepository operationLogRepo) {
+                              AdminOperationLogRepository operationLogRepo,
+                              ForumViewCountBuffer viewCountBuffer) {
         this.threadRepo = threadRepo;
         this.categoryRepo = categoryRepo;
         this.userRepo = userRepo;
         this.operationLogRepo = operationLogRepo;
+        this.viewCountBuffer = viewCountBuffer;
     }
 
     public Page<ForumThread> listByCategory(Long categoryId, Pageable pageable) {
@@ -145,10 +148,7 @@ public class ForumThreadService {
         ForumThread saved = threadRepo.save(t);
 
         // 更新板块帖子计数
-        categoryRepo.findById(req.getCategoryId()).ifPresent(c -> {
-            c.setThreadCount(c.getThreadCount() + 1);
-            categoryRepo.save(c);
-        });
+        incrementCategoryCount(req.getCategoryId());
 
         return saved;
     }
@@ -166,14 +166,8 @@ public class ForumThreadService {
                     t.setLinkedRefType(req.getLinkedRefType());
                     t.setLinkedRefId(req.getLinkedRefId());
                     if (!oldCategoryId.equals(req.getCategoryId())) {
-                        categoryRepo.findById(oldCategoryId).ifPresent(c -> {
-                            c.setThreadCount(Math.max(0, c.getThreadCount() - 1));
-                            categoryRepo.save(c);
-                        });
-                        categoryRepo.findById(req.getCategoryId()).ifPresent(c -> {
-                            c.setThreadCount(c.getThreadCount() + 1);
-                            categoryRepo.save(c);
-                        });
+                        decrementCategoryCount(oldCategoryId);
+                        incrementCategoryCount(req.getCategoryId());
                     }
                     return threadRepo.save(t);
                 });
@@ -196,10 +190,7 @@ public class ForumThreadService {
 
     @Transactional
     public void incrementViewCount(Long id) {
-        threadRepo.findById(id).ifPresent(t -> {
-            t.setViewCount(t.getViewCount() + 1);
-            threadRepo.save(t);
-        });
+        viewCountBuffer.recordView(id);
     }
 
     @Transactional
@@ -286,17 +277,11 @@ public class ForumThreadService {
     }
 
     private void decrementCategoryCount(Long categoryId) {
-        categoryRepo.findById(categoryId).ifPresent(c -> {
-            c.setThreadCount(Math.max(0, c.getThreadCount() - 1));
-            categoryRepo.save(c);
-        });
+        categoryRepo.decrementThreadCount(categoryId);
     }
 
     private void incrementCategoryCount(Long categoryId) {
-        categoryRepo.findById(categoryId).ifPresent(c -> {
-            c.setThreadCount(c.getThreadCount() + 1);
-            categoryRepo.save(c);
-        });
+        categoryRepo.incrementThreadCount(categoryId);
     }
 
     private void recordOperation(String operatorUsername, String action, Long targetId, String detail) {

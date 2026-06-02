@@ -48,20 +48,14 @@ public class ResourceFavoriteService {
     @Transactional
     public ResourceFavoriteInteractionResponse favorite(ResourceFavorite.RefType refType, Long refId, Long userId) {
         validateTarget(refType, refId);
-        if (!favoriteRepo.existsByUserIdAndRefTypeAndRefId(userId, refType, refId)) {
-            ResourceFavorite favorite = new ResourceFavorite();
-            favorite.setUserId(userId);
-            favorite.setRefType(refType);
-            favorite.setRefId(refId);
-            favoriteRepo.save(favorite);
-        }
+        favoriteRepo.insertIgnore(userId, refType.name(), refId);
         return getInteraction(refType, refId, userId);
     }
 
     @Transactional
     public ResourceFavoriteInteractionResponse unfavorite(ResourceFavorite.RefType refType, Long refId, Long userId) {
         validateTarget(refType, refId);
-        favoriteRepo.findByUserIdAndRefTypeAndRefId(userId, refType, refId).ifPresent(favoriteRepo::delete);
+        favoriteRepo.deleteByUserIdAndRefTypeAndRefId(userId, refType, refId);
         return getInteraction(refType, refId, userId);
     }
 

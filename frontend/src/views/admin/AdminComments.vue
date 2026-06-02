@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { adminApi } from '../../api'
-import type { Comment, CommentStatus } from '../../api/types'
+import type { Comment, CommentStatus, Page } from '../../api/types'
 import { toast } from '../../composables/useToast'
 
-const items = ref<Comment[]>([])
 const loading = ref(false)
 const onlyPending = ref(true)
 const status = ref<CommentStatus | ''>('')
+const page = ref(0)
+const size = 20
+const pageData = ref<Page<Comment> | null>(null)
+
+const items = computed(() => pageData.value?.content ?? [])
 
 const refLabels: Record<string, string> = { POST: '教程', SKILL: 'Skill', MCP: 'MCP', API: 'API站点' }
 const statusOptions: Array<{ value: CommentStatus | ''; label: string }> = [
@@ -25,13 +29,20 @@ const statusLabels: Record<CommentStatus, string> = {
 async function load() {
   loading.value = true
   try {
-    items.value = await adminApi.comments({
+    pageData.value = await adminApi.comments({
       pending: onlyPending.value || undefined,
-      status: status.value || undefined
+      status: status.value || undefined,
+      page: page.value,
+      size
     })
   } finally {
     loading.value = false
   }
+}
+
+function applyFilters() {
+  page.value = 0
+  load()
 }
 
 function commentStatus(c: Comment): CommentStatus {
@@ -69,6 +80,20 @@ async function remove(c: Comment) {
   load()
 }
 
+function previousPage() {
+  if (!pageData.value?.first) {
+    page.value -= 1
+    load()
+  }
+}
+
+function nextPage() {
+  if (!pageData.value?.last) {
+    page.value += 1
+    load()
+  }
+}
+
 function fmt(d: string) { return new Date(d).toLocaleString('zh-CN') }
 
 onMounted(load)
@@ -84,8 +109,8 @@ onMounted(load)
     </div>
 
     <div class="toolbar filters">
-      <label class="filter"><input type="checkbox" v-model="onlyPending" @change="load" /> 只看待审核</label>
-      <select v-model="status" class="input" @change="load">
+      <label class="filter"><input type="checkbox" v-model="onlyPending" @change="applyFilters" /> 只看待审核</label>
+      <select v-model="status" class="input" @change="applyFilters">
         <option v-for="item in statusOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
       </select>
       <button class="btn btn-primary" @click="load">刷新</button>
@@ -114,6 +139,12 @@ onMounted(load)
         <button v-if="commentStatus(c) !== 'DELETED'" class="btn btn-sm btn-danger" @click="remove(c)">软删除</button>
       </div>
     </div>
+
+    <div v-if="pageData" class="pager">
+      <button class="btn btn-sm" :disabled="pageData.first" @click="previousPage">上一页</button>
+      <span class="muted">第 {{ pageData.number + 1 }} / {{ Math.max(pageData.totalPages, 1) }} 页，共 {{ pageData.totalElements }} 条</span>
+      <button class="btn btn-sm" :disabled="pageData.last" @click="nextPage">下一页</button>
+    </div>
   </div>
 </template>
 
@@ -128,6 +159,7 @@ onMounted(load)
 .c-head > div { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .c-body { margin: 10px 0; white-space: pre-wrap; }
 .c-foot { display: flex; gap: 8px; flex-wrap: wrap; }
+.pager { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
 @media (max-width: 640px) {
   .filters .input { max-width: none; width: 100%; }
 }

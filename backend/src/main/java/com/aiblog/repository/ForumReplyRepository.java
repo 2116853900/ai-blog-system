@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -38,5 +39,11 @@ public interface ForumReplyRepository extends JpaRepository<ForumReply, Long>, J
             @Param("replyStatuses") Collection<ForumReply.ReplyStatus> replyStatuses,
             @Param("threadStatuses") Collection<ForumThread.ThreadStatus> threadStatuses,
             Pageable pageable);
-    int countByThreadIdAndStatus(Long threadId, ForumReply.ReplyStatus status);
+
+    @Query("select coalesce(max(r.floorNumber), 0) from ForumReply r where r.threadId = :threadId")
+    int findMaxFloorNumberByThreadId(@Param("threadId") Long threadId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update ForumReply r set r.reportCount = r.reportCount + 1 where r.id = :id")
+    int incrementReportCount(@Param("id") Long id);
 }

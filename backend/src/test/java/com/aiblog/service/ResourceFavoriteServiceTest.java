@@ -71,15 +71,15 @@ class ResourceFavoriteServiceTest {
     @Test
     void postFavoriteCreatesOneRecordForPublishedTutorial() {
         when(postRepo.findById(POST_ID)).thenReturn(Optional.of(post(true)));
-        when(favoriteRepo.existsByUserIdAndRefTypeAndRefId(USER_ID, POST, POST_ID))
-                .thenReturn(false, true);
+        when(favoriteRepo.existsByUserIdAndRefTypeAndRefId(USER_ID, POST, POST_ID)).thenReturn(true);
         when(favoriteRepo.countByRefTypeAndRefId(POST, POST_ID)).thenReturn(1L);
 
         ResourceFavoriteInteractionResponse response = service.favorite(POST, POST_ID, USER_ID);
 
         assertThat(response.isFavorited()).isTrue();
         assertThat(response.getFavoriteCount()).isEqualTo(1);
-        verify(favoriteRepo).save(any(ResourceFavorite.class));
+        verify(favoriteRepo).insertIgnore(USER_ID, POST.name(), POST_ID);
+        verify(favoriteRepo, never()).save(any(ResourceFavorite.class));
     }
 
     @Test
@@ -96,36 +96,34 @@ class ResourceFavoriteServiceTest {
     @Test
     void favoriteCreatesOneRecordAndReturnsUpdatedCount() {
         when(skillRepo.existsById(SKILL_ID)).thenReturn(true);
-        when(favoriteRepo.existsByUserIdAndRefTypeAndRefId(USER_ID, SKILL, SKILL_ID))
-                .thenReturn(false, true);
+        when(favoriteRepo.existsByUserIdAndRefTypeAndRefId(USER_ID, SKILL, SKILL_ID)).thenReturn(true);
         when(favoriteRepo.countByRefTypeAndRefId(SKILL, SKILL_ID)).thenReturn(1L);
 
         ResourceFavoriteInteractionResponse response = service.favorite(SKILL, SKILL_ID, USER_ID);
 
         assertThat(response.isFavorited()).isTrue();
         assertThat(response.getFavoriteCount()).isEqualTo(1);
-        verify(favoriteRepo).save(any(ResourceFavorite.class));
+        verify(favoriteRepo).insertIgnore(USER_ID, SKILL.name(), SKILL_ID);
+        verify(favoriteRepo, never()).save(any(ResourceFavorite.class));
     }
 
     @Test
     void favoriteIsIdempotent() {
         when(mcpRepo.existsById(MCP_ID)).thenReturn(true);
-        when(favoriteRepo.existsByUserIdAndRefTypeAndRefId(USER_ID, MCP, MCP_ID))
-                .thenReturn(true, true);
+        when(favoriteRepo.existsByUserIdAndRefTypeAndRefId(USER_ID, MCP, MCP_ID)).thenReturn(true);
         when(favoriteRepo.countByRefTypeAndRefId(MCP, MCP_ID)).thenReturn(1L);
 
         ResourceFavoriteInteractionResponse response = service.favorite(MCP, MCP_ID, USER_ID);
 
         assertThat(response.isFavorited()).isTrue();
         assertThat(response.getFavoriteCount()).isEqualTo(1);
+        verify(favoriteRepo).insertIgnore(USER_ID, MCP.name(), MCP_ID);
         verify(favoriteRepo, never()).save(any(ResourceFavorite.class));
     }
 
     @Test
     void unfavoriteDeletesExistingRecord() {
-        ResourceFavorite favorite = favorite(API, API_ID);
         when(apiRepo.existsById(API_ID)).thenReturn(true);
-        when(favoriteRepo.findByUserIdAndRefTypeAndRefId(USER_ID, API, API_ID)).thenReturn(Optional.of(favorite));
         when(favoriteRepo.existsByUserIdAndRefTypeAndRefId(USER_ID, API, API_ID)).thenReturn(false);
         when(favoriteRepo.countByRefTypeAndRefId(API, API_ID)).thenReturn(0L);
 
@@ -133,7 +131,8 @@ class ResourceFavoriteServiceTest {
 
         assertThat(response.isFavorited()).isFalse();
         assertThat(response.getFavoriteCount()).isZero();
-        verify(favoriteRepo).delete(favorite);
+        verify(favoriteRepo).deleteByUserIdAndRefTypeAndRefId(USER_ID, API, API_ID);
+        verify(favoriteRepo, never()).delete(any(ResourceFavorite.class));
     }
 
     @Test

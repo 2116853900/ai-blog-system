@@ -127,7 +127,8 @@ export const adminApi = {
   dashboard: () => http.get<AdminDashboard>('/admin/dashboard').then(r => r.data),
 
   // posts
-  posts: () => http.get<Post[]>('/admin/posts').then(r => r.data),
+  posts: (params?: { page?: number; size?: number }) =>
+    http.get<Page<Post>>('/admin/posts', { params }).then(r => r.data),
   post: (id: number) => http.get<Post>(`/admin/posts/${id}`).then(r => r.data),
   createPost: (body: Partial<Post>) => http.post<Post>('/admin/posts', body).then(r => r.data),
   updatePost: (id: number, body: Partial<Post>) => http.put<Post>(`/admin/posts/${id}`, body).then(r => r.data),
@@ -136,19 +137,22 @@ export const adminApi = {
   deletePost: (id: number) => http.delete(`/admin/posts/${id}`),
 
   // skills
-  skills: () => http.get<Skill[]>('/admin/skills').then(r => r.data),
+  skills: (params?: { page?: number; size?: number }) =>
+    http.get<Page<Skill>>('/admin/skills', { params }).then(r => r.data),
   createSkill: (body: Partial<Skill>) => http.post<Skill>('/admin/skills', body).then(r => r.data),
   updateSkill: (id: number, body: Partial<Skill>) => http.put<Skill>(`/admin/skills/${id}`, body).then(r => r.data),
   deleteSkill: (id: number) => http.delete(`/admin/skills/${id}`),
 
   // mcps
-  mcps: () => http.get<Mcp[]>('/admin/mcps').then(r => r.data),
+  mcps: (params?: { page?: number; size?: number }) =>
+    http.get<Page<Mcp>>('/admin/mcps', { params }).then(r => r.data),
   createMcp: (body: Partial<Mcp>) => http.post<Mcp>('/admin/mcps', body).then(r => r.data),
   updateMcp: (id: number, body: Partial<Mcp>) => http.put<Mcp>(`/admin/mcps/${id}`, body).then(r => r.data),
   deleteMcp: (id: number) => http.delete(`/admin/mcps/${id}`),
 
   // api stations
-  apiStations: () => http.get<ApiStation[]>('/admin/api-stations').then(r => r.data),
+  apiStations: (params?: { page?: number; size?: number }) =>
+    http.get<Page<ApiStation>>('/admin/api-stations', { params }).then(r => r.data),
   createApiStation: (body: Partial<ApiStation>) => http.post<ApiStation>('/admin/api-stations', body).then(r => r.data),
   updateApiStation: (id: number, body: Partial<ApiStation>) => http.put<ApiStation>(`/admin/api-stations/${id}`, body).then(r => r.data),
   deleteApiStation: (id: number) => http.delete(`/admin/api-stations/${id}`),
@@ -156,16 +160,16 @@ export const adminApi = {
   checkAllApiStations: () => http.post('/admin/api-stations/check-all'),
 
   // comments
-  comments: (params?: { pending?: boolean; status?: CommentStatus }) =>
-    http.get<Comment[]>('/admin/comments', { params }).then(r => r.data),
+  comments: (params?: { pending?: boolean; status?: CommentStatus; page?: number; size?: number }) =>
+    http.get<Page<Comment>>('/admin/comments', { params }).then(r => r.data),
   approveComment: (id: number) => http.post(`/admin/comments/${id}/approve`).then(r => r.data),
   hideComment: (id: number) => http.post<Comment>(`/admin/comments/${id}/hide`).then(r => r.data),
   restoreComment: (id: number) => http.post<Comment>(`/admin/comments/${id}/restore`).then(r => r.data),
   deleteComment: (id: number) => http.delete(`/admin/comments/${id}`),
 
   // submissions
-  submissions: (status?: string) =>
-    http.get<Submission[]>('/admin/submissions', { params: status ? { status } : {} }).then(r => r.data),
+  submissions: (params?: { status?: string; page?: number; size?: number }) =>
+    http.get<Page<Submission>>('/admin/submissions', { params }).then(r => r.data),
   approveSubmission: (id: number) => http.post(`/admin/submissions/${id}/approve`).then(r => r.data),
   rejectSubmission: (id: number) => http.post(`/admin/submissions/${id}/reject`).then(r => r.data),
   deleteSubmission: (id: number) => http.delete(`/admin/submissions/${id}`),

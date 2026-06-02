@@ -1,5 +1,6 @@
 package com.aiblog.service;
 
+import com.aiblog.cache.PublicContentCacheService;
 import com.aiblog.dto.GlobalSearchGroupResponse;
 import com.aiblog.dto.GlobalSearchItemResponse;
 import com.aiblog.dto.GlobalSearchResponse;
@@ -36,17 +37,20 @@ public class GlobalSearchService {
     private final McpRepository mcpRepo;
     private final ApiStationRepository apiRepo;
     private final ForumThreadRepository threadRepo;
+    private final PublicContentCacheService cacheService;
 
     public GlobalSearchService(PostRepository postRepo,
                                SkillRepository skillRepo,
                                McpRepository mcpRepo,
                                ApiStationRepository apiRepo,
-                               ForumThreadRepository threadRepo) {
+                               ForumThreadRepository threadRepo,
+                               PublicContentCacheService cacheService) {
         this.postRepo = postRepo;
         this.skillRepo = skillRepo;
         this.mcpRepo = mcpRepo;
         this.apiRepo = apiRepo;
         this.threadRepo = threadRepo;
+        this.cacheService = cacheService;
     }
 
     public GlobalSearchResponse search(String rawQuery, Integer rawLimit) {
@@ -56,6 +60,10 @@ public class GlobalSearchService {
         }
 
         int limit = clampLimit(rawLimit);
+        return cacheService.search(query + ":" + limit, GlobalSearchResponse.class, () -> searchUncached(query, limit));
+    }
+
+    private GlobalSearchResponse searchUncached(String query, int limit) {
         List<GlobalSearchGroupResponse> groups = new ArrayList<>();
 
         List<GlobalSearchItemResponse> posts = postRepo

@@ -2,11 +2,11 @@ package com.aiblog.controller.admin;
 
 import com.aiblog.entity.Comment;
 import com.aiblog.service.AdminCommentService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin/comments")
@@ -20,9 +20,11 @@ public class AdminCommentController {
 
     /** 全部评论，可按 pending 和 status 过滤 */
     @GetMapping
-    public List<Comment> list(@RequestParam(required = false) Boolean pending,
-                              @RequestParam(required = false) Comment.CommentStatus status) {
-        return commentService.list(pending, status);
+    public Page<Comment> list(@RequestParam(required = false) Boolean pending,
+                              @RequestParam(required = false) Comment.CommentStatus status,
+                              @RequestParam(defaultValue = "0") int page,
+                              @RequestParam(defaultValue = "20") int size) {
+        return commentService.list(pending, status, PageRequest.of(normalizePage(page), normalizeSize(size)));
     }
 
     @PostMapping("/{id}/approve")
@@ -55,5 +57,13 @@ public class AdminCommentController {
 
     private String operator(Authentication auth) {
         return auth == null ? "unknown" : auth.getName();
+    }
+
+    private int normalizePage(int page) {
+        return Math.max(0, page);
+    }
+
+    private int normalizeSize(int size) {
+        return Math.max(1, Math.min(100, size));
     }
 }

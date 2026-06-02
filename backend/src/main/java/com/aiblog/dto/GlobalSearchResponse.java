@@ -7,6 +7,9 @@ public class GlobalSearchResponse {
     private int totalCount;
     private List<GlobalSearchGroupResponse> groups;
 
+    public GlobalSearchResponse() {
+    }
+
     public GlobalSearchResponse(String query, List<GlobalSearchGroupResponse> groups) {
         this.query = query;
         this.groups = groups;
