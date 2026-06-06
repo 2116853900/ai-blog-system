@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Collection;
@@ -44,30 +45,37 @@ public interface ForumThreadRepository extends JpaRepository<ForumThread, Long>,
     List<ForumThread> findByLinkedRefTypeAndLinkedRefIdAndStatusIn(String refType, Long refId, Collection<ForumThread.ThreadStatus> statuses);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
     @Query("update ForumThread t set t.viewCount = t.viewCount + 1 where t.id = :id")
     int incrementViewCount(@Param("id") Long id);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
     @Query("update ForumThread t set t.viewCount = t.viewCount + :delta where t.id = :id")
     int incrementViewCountBy(@Param("id") Long id, @Param("delta") long delta);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
     @Query("update ForumThread t set t.likeCount = t.likeCount + 1 where t.id = :id")
     int incrementLikeCount(@Param("id") Long id);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
     @Query("update ForumThread t set t.likeCount = case when t.likeCount > 0 then t.likeCount - 1 else 0 end where t.id = :id")
     int decrementLikeCount(@Param("id") Long id);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
     @Query("update ForumThread t set t.favoriteCount = t.favoriteCount + 1 where t.id = :id")
     int incrementFavoriteCount(@Param("id") Long id);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
     @Query("update ForumThread t set t.favoriteCount = case when t.favoriteCount > 0 then t.favoriteCount - 1 else 0 end where t.id = :id")
     int decrementFavoriteCount(@Param("id") Long id);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
     @Query("""
             update ForumThread t
             set t.replyCount = t.replyCount + 1,
@@ -80,10 +88,12 @@ public interface ForumThreadRepository extends JpaRepository<ForumThread, Long>,
                             @Param("lastReplyAt") Instant lastReplyAt);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
     @Query("update ForumThread t set t.replyCount = case when t.replyCount > 0 then t.replyCount - 1 else 0 end where t.id = :id")
     int decrementReplyCount(@Param("id") Long id);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
     @Query("update ForumThread t set t.reportCount = t.reportCount + 1 where t.id = :id")
     int incrementReportCount(@Param("id") Long id);
 }

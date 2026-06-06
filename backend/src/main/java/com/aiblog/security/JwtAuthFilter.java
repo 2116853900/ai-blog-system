@@ -36,11 +36,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 String username = jwtUtil.extractUsername(token);
                 String role = jwtUtil.extractRole(token);
                 var auth = new UsernamePasswordAuthenticationToken(
-                        username, null, List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+                        username, null, List.of(new SimpleGrantedAuthority(normalizeAuthority(role))));
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    private String normalizeAuthority(String role) {
+        if (role == null || role.isBlank()) {
+            return "ROLE_USER";
+        }
+        String normalized = role.trim();
+        return normalized.startsWith("ROLE_") ? normalized : "ROLE_" + normalized;
     }
 }

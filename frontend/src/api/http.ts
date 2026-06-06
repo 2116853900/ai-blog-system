@@ -21,12 +21,12 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response && err.response.status === 401) {
+    if (err.response && (err.response.status === 401 || err.response.status === 403)) {
       const auth = useAuthStore()
       if (auth.isLoggedIn()) {
         auth.logout()
         router.push(router.currentRoute.value.path.startsWith('/admin') ? '/admin/login' : '/login')
-        toast.error('登录已过期，请重新登录')
+        toast.error(err.response.status === 401 ? '登录已过期，请重新登录' : '登录状态无效，请重新登录')
       }
     } else if (err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED') {
       toast.error('网络连接失败，请检查后端服务')

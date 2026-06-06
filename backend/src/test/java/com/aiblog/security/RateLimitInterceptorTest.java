@@ -74,6 +74,20 @@ class RateLimitInterceptorTest {
     }
 
     @Test
+    void blocksRepeatedResourceReviewMutationsByUser() throws Exception {
+        SecurityContextHolder.getContext().setAuthentication(auth("alice"));
+        MockHttpServletRequest first = request("POST", "/api/account/resource-reviews/SKILL/11");
+        MockHttpServletResponse firstResponse = new MockHttpServletResponse();
+        MockHttpServletRequest second = request("DELETE", "/api/account/resource-reviews/SKILL/11");
+        MockHttpServletResponse secondResponse = new MockHttpServletResponse();
+
+        assertThat(interceptor.preHandle(first, firstResponse, new Object())).isTrue();
+        assertThat(interceptor.preHandle(second, secondResponse, new Object())).isFalse();
+        assertThat(secondResponse.getStatus()).isEqualTo(429);
+        assertThat(registry.counter("aiblog.rate_limit.requests", "rule", "account-mutation", "outcome", "rejected").count()).isEqualTo(1);
+    }
+
+    @Test
     void ignoresForumReadRequests() throws Exception {
         MockHttpServletRequest first = request("GET", "/api/forum/threads");
         MockHttpServletResponse firstResponse = new MockHttpServletResponse();
