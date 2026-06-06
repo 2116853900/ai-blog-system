@@ -32,10 +32,10 @@ public class ForumThreadController {
     public Page<ForumThread> list(
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String q,
+            @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        var pageable = PageRequest.of(page, size,
-                Sort.by(Sort.Direction.DESC, "lastReplyAt").and(Sort.by(Sort.Direction.DESC, "createdAt")));
+        var pageable = PageRequest.of(page, size, resolveThreadSort(sort));
         if (categoryId != null || (q != null && !q.isBlank())) {
             return threadService.search(categoryId, q, pageable);
         }
@@ -92,6 +92,20 @@ public class ForumThreadController {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.status(403).body(Map.of("message", "无权删除此帖子"));
+    }
+
+    private Sort resolveThreadSort(String sort) {
+        if ("newest".equalsIgnoreCase(sort)) {
+            return Sort.by(Sort.Direction.DESC, "createdAt");
+        }
+        if ("popular".equalsIgnoreCase(sort)) {
+            return Sort.by(Sort.Direction.DESC, "replyCount")
+                    .and(Sort.by(Sort.Direction.DESC, "viewCount"))
+                    .and(Sort.by(Sort.Direction.DESC, "likeCount"))
+                    .and(Sort.by(Sort.Direction.DESC, "createdAt"));
+        }
+        return Sort.by(Sort.Direction.DESC, "lastReplyAt")
+                .and(Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 
     private Long resolveUserId(Authentication auth) {

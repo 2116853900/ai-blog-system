@@ -8,6 +8,14 @@ import StateBlock from '../components/StateBlock.vue'
 import Skeleton from '../components/Skeleton.vue'
 import { useAuthStore } from '../stores/auth'
 
+type ForumSort = 'latest' | 'newest' | 'popular'
+
+const sortOptions: Array<{ value: ForumSort; label: string }> = [
+  { value: 'latest', label: '最近活跃' },
+  { value: 'newest', label: '最新发布' },
+  { value: 'popular', label: '热门' }
+]
+
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
@@ -20,8 +28,13 @@ const selectedCategoryId = ref<number | undefined>(
   route.query.categoryId ? Number(route.query.categoryId) : undefined
 )
 const q = ref(typeof route.query.q === 'string' ? route.query.q : '')
+const sort = ref<ForumSort>(parseSort(route.query.sort))
 
 const parents = computed(() => categories.value.filter(c => !c.parentId))
+
+function parseSort(value: unknown): ForumSort {
+  return value === 'newest' || value === 'popular' ? value : 'latest'
+}
 
 function children(parentId: number) {
   return categories.value.filter(c => c.parentId === parentId)
@@ -59,6 +72,7 @@ async function loadThreads(nextPage = page.value) {
     threads.value = await forumApi.threads({
       categoryId: selectedCategoryId.value,
       q: q.value.trim() || undefined,
+      sort: sort.value,
       page: page.value,
       size: 20
     })
@@ -79,10 +93,19 @@ async function syncQuery() {
   const query: Record<string, string> = {}
   if (selectedCategoryId.value) query.categoryId = String(selectedCategoryId.value)
   if (q.value.trim()) query.q = q.value.trim()
+  if (sort.value !== 'latest') query.sort = sort.value
   await router.replace({ query })
 }
 
 async function searchThreads() {
+  page.value = 0
+  await syncQuery()
+  await loadThreads(0)
+}
+
+async function selectSort(value: ForumSort) {
+  if (sort.value === value) return
+  sort.value = value
   page.value = 0
   await syncQuery()
   await loadThreads(0)
@@ -141,7 +164,20 @@ onMounted(async () => {
             <h2>{{ selectedCategoryId ? categoryName(selectedCategoryId) : '全部讨论' }}</h2>
             <span class="muted mono">{{ threads?.totalElements || 0 }} threads</span>
           </div>
-          <SearchBar v-model="q" placeholder="搜索标题、正文或标签" @search="searchThreads" />
+          <div class="thread-tools">
+            <div class="sort-tabs" aria-label="帖子排序">
+              <button
+                v-for="option in sortOptions"
+                :key="option.value"
+                type="button"
+                :class="{ active: sort === option.value }"
+                @click="selectSort(option.value)"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+            <SearchBar v-model="q" placeholder="搜索标题、正文或标签" @search="searchThreads" />
+          </div>
         </div>
 
         <StateBlock :loading="loading" :empty="!threads?.content.length" :empty-text="q ? '没有匹配的讨论。' : '暂无帖子，来发布第一条讨论吧。'">
@@ -225,6 +261,31 @@ onMounted(async () => {
 .cat-all.active, .cat-parent.active, .cat-child.active { background: var(--primary-soft); color: var(--primary); }
 .thread-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 360px); gap: 14px; align-items: center; margin-bottom: 12px; }
 .thread-head h2 { margin: 0; }
+.thread-tools { display: grid; gap: 10px; }
+.sort-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-inset);
+}
+.sort-tabs button {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+.sort-tabs button:hover,
+.sort-tabs button.active {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
 .thread-list { display: flex; flex-direction: column; gap: 12px; }
 .thread-card { padding: 18px; color: var(--text); display: flex; justify-content: space-between; gap: 20px; }
 .thread-card:hover { text-decoration: none; }
@@ -241,6 +302,7 @@ onMounted(async () => {
 @media (max-width: 640px) {
   .forum-hero, .thread-card { flex-direction: column; align-items: stretch; }
   .thread-head { grid-template-columns: 1fr; }
+  .sort-tabs { overflow-x: auto; }
   .stats { text-align: left; flex-direction: row; flex-wrap: wrap; }
 }
 </style>
