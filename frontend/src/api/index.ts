@@ -5,6 +5,7 @@ import type {
   ForumCategory, ForumThread, ForumReply, Page, AdminOperationLog,
   ThreadStatus, ReplyStatus, AdminForumUser, UserStatus, ForumInteraction,
   ResourceFavoriteInteraction, ResourceFavoriteItem, ResourceFavoriteRefType, UserNotification,
+  ResourceReview, ResourceReviewSummary,
   ContentReport, ContentReportTarget, ReportReasonType, ReportStatus, ReportTargetType, CommentStatus,
   GlobalSearchResponse, AdminDashboard
 } from './types'
@@ -35,6 +36,10 @@ export const publicApi = {
 
   resourceFavoriteInteraction: (refType: ResourceFavoriteRefType, refId: number) =>
     http.get<ResourceFavoriteInteraction>(`/resource-favorites/${refType}/${refId}`).then(r => r.data),
+  resourceReviewSummary: (refType: ResourceFavoriteRefType, refId: number) =>
+    http.get<ResourceReviewSummary>(`/resource-reviews/${refType}/${refId}/summary`).then(r => r.data),
+  resourceReviews: (refType: ResourceFavoriteRefType, refId: number, params?: { page?: number; size?: number }) =>
+    http.get<Page<ResourceReview>>(`/resource-reviews/${refType}/${refId}`, { params }).then(r => r.data),
 
   addComment: (body: { refType: RefType; refId: number; author: string; content: string }) =>
     http.post('/comments', body).then(r => r.data),
@@ -70,6 +75,13 @@ export const accountApi = {
     http.post<ResourceFavoriteInteraction>(`/account/resource-favorites/${refType}/${refId}`).then(r => r.data),
   unfavoriteResource: (refType: ResourceFavoriteRefType, refId: number) =>
     http.delete<ResourceFavoriteInteraction>(`/account/resource-favorites/${refType}/${refId}`).then(r => r.data),
+  upsertResourceReview: (
+    refType: ResourceFavoriteRefType,
+    refId: number,
+    body: { rating: number; content?: string }
+  ) => http.post<ResourceReview>(`/account/resource-reviews/${refType}/${refId}`, body).then(r => r.data),
+  deleteResourceReview: (refType: ResourceFavoriteRefType, refId: number) =>
+    http.delete(`/account/resource-reviews/${refType}/${refId}`),
   notifications: (params?: { page?: number; size?: number }) =>
     http.get<Page<UserNotification>>('/account/notifications', { params }).then(r => r.data),
   unreadNotificationCount: () =>
@@ -83,7 +95,7 @@ export const accountApi = {
 export const forumApi = {
   categories: () => http.get<ForumCategory[]>('/forum/categories').then(r => r.data),
   category: (id: number) => http.get<ForumCategory>(`/forum/categories/${id}`).then(r => r.data),
-  threads: (params?: { categoryId?: number; q?: string; page?: number; size?: number }) =>
+  threads: (params?: { categoryId?: number; q?: string; sort?: 'latest' | 'newest' | 'popular'; page?: number; size?: number }) =>
     http.get<Page<ForumThread>>('/forum/threads', { params }).then(r => r.data),
   thread: (id: number) => http.get<ForumThread>(`/forum/threads/${id}`).then(r => r.data),
   linkedThreads: (refType: RefType, refId: number) =>
@@ -125,6 +137,16 @@ export const userApi = {
 // ---------- 后台接口 ----------
 export const adminApi = {
   dashboard: () => http.get<AdminDashboard>('/admin/dashboard').then(r => r.data),
+  operationLogs: (params?: {
+    operatorUsername?: string
+    action?: string
+    targetType?: string
+    targetId?: number
+    createdFrom?: string
+    createdTo?: string
+    page?: number
+    size?: number
+  }) => http.get<Page<AdminOperationLog>>('/admin/operation-logs', { params }).then(r => r.data),
 
   // posts
   posts: (params?: { page?: number; size?: number }) =>

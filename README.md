@@ -45,6 +45,7 @@
 | POST | `/api/submissions` | 投稿（待审核）|
 | GET  | `/api/resource-favorites/{type}/{id}` | 资源收藏状态与收藏数 |
 | GET/POST/DELETE | `/api/account/resource-favorites/**` | 登录用户的教程、Skill、MCP、API 收藏 |
+| GET/POST/DELETE | `/api/resource-reviews/**` `/api/account/resource-reviews/**` | 资源评分、评价列表与登录用户评价管理 |
 | GET/POST/PUT/DELETE | `/api/forum/**` | 论坛板块、帖子、回复；帖子列表支持 `q` 关键词搜索 |
 | GET  | `/api/users/{id}` `/api/users/{id}/threads` `/api/users/{id}/replies` | 用户公开资料 / 公开帖子 / 公开回复 |
 | GET/POST | `/api/account/notifications/**` | 登录用户通知列表、未读数与已读操作 |

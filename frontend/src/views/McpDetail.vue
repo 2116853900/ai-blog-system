@@ -7,6 +7,7 @@ import CommentSection from '../components/CommentSection.vue'
 import CopyButton from '../components/CopyButton.vue'
 import LinkedDiscussions from '../components/LinkedDiscussions.vue'
 import ResourceFavoriteButton from '../components/ResourceFavoriteButton.vue'
+import ResourceReviewPanel from '../components/ResourceReviewPanel.vue'
 import Skeleton from '../components/Skeleton.vue'
 import StarRating from '../components/StarRating.vue'
 import TagList from '../components/TagList.vue'
@@ -83,6 +84,8 @@ watch(() => route.params.id, load)
       <hr class="sep" />
       <CommentSection ref-type="MCP" :ref-id="mcp.id" />
     </article>
+
+    <ResourceReviewPanel v-if="mcp?.id" ref-type="MCP" :ref-id="mcp.id" />
   </div>
 </template>
 

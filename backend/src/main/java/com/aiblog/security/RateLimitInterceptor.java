@@ -90,7 +90,8 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return new RuleSelection("forum-mutation", properties.getForumMutation());
         }
         if (("POST".equals(method) || "DELETE".equals(method))
-                && path.startsWith("/api/account/resource-favorites/")) {
+                && (path.startsWith("/api/account/resource-favorites/")
+                || path.startsWith("/api/account/resource-reviews/"))) {
             return new RuleSelection("account-mutation", properties.getAccountMutation());
         }
         return null;

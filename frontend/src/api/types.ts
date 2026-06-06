@@ -206,6 +206,23 @@ export interface ResourceFavoriteItem {
   createdAt: string
 }
 
+export interface ResourceReview {
+  id: number
+  userId: number
+  refType: ResourceFavoriteRefType
+  refId: number
+  rating: number
+  content?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ResourceReviewSummary {
+  averageRating: number
+  reviewCount: number
+  myReview?: ResourceReview | null
+}
+
 export type NotificationType = 'THREAD_REPLY' | 'REPLY_REPLY'
 
 export interface UserNotification {

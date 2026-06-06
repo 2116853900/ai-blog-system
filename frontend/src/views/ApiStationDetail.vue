@@ -7,6 +7,7 @@ import CommentSection from '../components/CommentSection.vue'
 import CopyButton from '../components/CopyButton.vue'
 import LinkedDiscussions from '../components/LinkedDiscussions.vue'
 import ResourceFavoriteButton from '../components/ResourceFavoriteButton.vue'
+import ResourceReviewPanel from '../components/ResourceReviewPanel.vue'
 import Skeleton from '../components/Skeleton.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import TagList from '../components/TagList.vue'
@@ -125,6 +126,8 @@ watch(() => route.params.id, load)
       <hr class="sep" />
       <CommentSection ref-type="API" :ref-id="station.id" />
     </article>
+
+    <ResourceReviewPanel v-if="station?.id" ref-type="API" :ref-id="station.id" />
   </div>
 </template>
 

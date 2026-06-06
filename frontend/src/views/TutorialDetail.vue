@@ -7,6 +7,7 @@ import MarkdownView from '../components/MarkdownView.vue'
 import CommentSection from '../components/CommentSection.vue'
 import LinkedDiscussions from '../components/LinkedDiscussions.vue'
 import ResourceFavoriteButton from '../components/ResourceFavoriteButton.vue'
+import ResourceReviewPanel from '../components/ResourceReviewPanel.vue'
 import Skeleton from '../components/Skeleton.vue'
 
 const route = useRoute()
@@ -73,6 +74,8 @@ watch(() => route.params.slug, load)
       <hr class="sep" />
       <CommentSection ref-type="POST" :ref-id="post.id" />
     </article>
+
+    <ResourceReviewPanel v-if="post?.id" ref-type="POST" :ref-id="post.id" />
   </div>
 </template>
 
