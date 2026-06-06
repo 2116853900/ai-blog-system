@@ -30,6 +30,7 @@ const router = createRouter({
       meta: { requiresAdmin: true },
       children: [
         { path: '', name: 'admin-dashboard', component: () => import('../views/admin/AdminDashboard.vue'), meta: { requiresAdmin: true } },
+        { path: 'operation-logs', name: 'admin-operation-logs', component: () => import('../views/admin/AdminOperationLogs.vue'), meta: { requiresAdmin: true } },
         { path: 'posts', name: 'admin-posts', component: () => import('../views/admin/AdminPosts.vue'), meta: { requiresAdmin: true } },
         { path: 'posts/new', name: 'admin-post-new', component: () => import('../views/admin/AdminPostEdit.vue'), meta: { requiresAdmin: true } },
         { path: 'posts/:id/edit', name: 'admin-post-edit', component: () => import('../views/admin/AdminPostEdit.vue'), meta: { requiresAdmin: true } },

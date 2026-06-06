@@ -8,6 +8,7 @@ const router = useRouter()
 
 const menu = [
   { to: '/admin', label: '总览' },
+  { to: '/admin/operation-logs', label: '🧾 审计日志' },
   { to: '/admin/posts', label: '📚 教程' },
   { to: '/admin/skills', label: '✨ Skill' },
   { to: '/admin/mcps', label: '🔌 MCP' },
