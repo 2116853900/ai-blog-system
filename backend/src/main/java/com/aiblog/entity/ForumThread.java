@@ -57,6 +57,12 @@ public class ForumThread {
 
     private Instant lastReplyAt;
 
+    private Long acceptedReplyId;
+
+    private Long acceptedReplyUserId;
+
+    private Instant acceptedAt;
+
     /** 关联博客系统内容类型 */
     private String linkedRefType;
 
@@ -115,6 +121,15 @@ public class ForumThread {
 
     public Instant getLastReplyAt() { return lastReplyAt; }
     public void setLastReplyAt(Instant lastReplyAt) { this.lastReplyAt = lastReplyAt; }
+
+    public Long getAcceptedReplyId() { return acceptedReplyId; }
+    public void setAcceptedReplyId(Long acceptedReplyId) { this.acceptedReplyId = acceptedReplyId; }
+
+    public Long getAcceptedReplyUserId() { return acceptedReplyUserId; }
+    public void setAcceptedReplyUserId(Long acceptedReplyUserId) { this.acceptedReplyUserId = acceptedReplyUserId; }
+
+    public Instant getAcceptedAt() { return acceptedAt; }
+    public void setAcceptedAt(Instant acceptedAt) { this.acceptedAt = acceptedAt; }
 
     public String getLinkedRefType() { return linkedRefType; }
     public void setLinkedRefType(String linkedRefType) { this.linkedRefType = linkedRefType; }

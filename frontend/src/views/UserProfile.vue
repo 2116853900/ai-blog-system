@@ -36,6 +36,14 @@ function tagsOf(tags?: string) {
   return (tags || '').split(',').map(tag => tag.trim()).filter(Boolean)
 }
 
+function threadLink(id: number) {
+  return `/forum/threads/${id}`
+}
+
+function tagFilterLink(tag: string) {
+  return `/forum?tag=${encodeURIComponent(tag)}`
+}
+
 function preview(markdown?: string) {
   if (!markdown) return '暂无内容摘要。'
   const text = markdown
@@ -202,17 +210,20 @@ onMounted(load)
             </template>
 
             <div v-if="activeTab === 'threads'" class="activity-list">
-              <RouterLink
+              <div
                 v-for="thread in threads?.content"
                 :key="thread.id"
-                :to="`/forum/threads/${thread.id}`"
                 class="activity-item"
               >
                 <div class="item-main">
-                  <h3>{{ thread.title }}</h3>
+                  <h3>
+                    <RouterLink class="thread-title-link" :to="threadLink(thread.id)">{{ thread.title }}</RouterLink>
+                  </h3>
                   <p class="muted">{{ preview(thread.contentMarkdown) }}</p>
                   <div v-if="tagsOf(thread.tags).length" class="tags">
-                    <span v-for="tag in tagsOf(thread.tags).slice(0, 5)" :key="tag" class="tag">{{ tag }}</span>
+                    <RouterLink v-for="tag in tagsOf(thread.tags).slice(0, 5)" :key="tag" class="tag filter-link" :to="tagFilterLink(tag)">
+                      {{ tag }}
+                    </RouterLink>
                   </div>
                 </div>
                 <div class="item-side mono">
@@ -220,7 +231,7 @@ onMounted(load)
                   <span>{{ thread.viewCount }} 浏览</span>
                   <span>{{ fmtMinute(thread.createdAt) }}</span>
                 </div>
-              </RouterLink>
+              </div>
             </div>
 
             <div v-else class="activity-list">
@@ -361,6 +372,9 @@ onMounted(load)
   font-size: 16px;
   line-height: 1.45;
 }
+.thread-title-link { color: var(--text); }
+.thread-title-link:hover { color: var(--primary); text-decoration: none; }
+.filter-link:hover { text-decoration: none; }
 .activity-item p {
   margin: 0;
   line-height: 1.65;

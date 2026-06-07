@@ -111,6 +111,30 @@ class ForumReplyServiceTest {
         verify(threadRepo, never()).incrementReplyCount(any(), any(), any());
     }
 
+    @Test
+    void deleteClearsAcceptedReplyWhenDeletingSolution() {
+        ForumReply reply = new ForumReply();
+        reply.setId(99L);
+        reply.setThreadId(THREAD_ID);
+        reply.setAuthorId(AUTHOR_ID);
+        reply.setStatus(ForumReply.ReplyStatus.NORMAL);
+        thread.setAcceptedReplyId(99L);
+        thread.setAcceptedReplyUserId(AUTHOR_ID);
+        thread.setAcceptedAt(Instant.parse("2026-06-07T00:00:00Z"));
+        when(replyRepo.findById(99L)).thenReturn(Optional.of(reply));
+        when(replyRepo.save(any(ForumReply.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(threadRepo.findById(THREAD_ID)).thenReturn(Optional.of(thread));
+        when(threadRepo.save(any(ForumThread.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        boolean deleted = service.delete(99L, AUTHOR_ID, false);
+
+        assertThat(deleted).isTrue();
+        assertThat(thread.getAcceptedReplyId()).isNull();
+        assertThat(thread.getAcceptedReplyUserId()).isNull();
+        assertThat(thread.getAcceptedAt()).isNull();
+        verify(threadRepo).save(thread);
+    }
+
     private ReplyRequest request(String content) {
         ReplyRequest request = new ReplyRequest();
         request.setContentMarkdown(content);

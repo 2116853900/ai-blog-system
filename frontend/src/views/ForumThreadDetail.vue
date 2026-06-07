@@ -22,6 +22,7 @@ const profiles = ref<Record<number, UserProfile>>({})
 const loading = ref(true)
 const replyLoading = ref(false)
 const saving = ref(false)
+const solutionSaving = ref(false)
 const page = ref(0)
 const error = ref('')
 const replyToId = ref<number | null>(null)
@@ -50,6 +51,10 @@ const canManageThread = computed(() => {
   if (!thread.value || !auth.isLoggedIn()) return false
   return auth.userId === thread.value.authorId || auth.isModerator
 })
+const acceptedReply = computed(() => {
+  if (!thread.value?.acceptedReplyId || !replies.value) return null
+  return replies.value.content.find(reply => reply.id === thread.value?.acceptedReplyId) || null
+})
 
 function categoryName(id?: number) {
   return categories.value.find(c => c.id === id)?.name || '未分类'
@@ -66,6 +71,14 @@ function fmt(d?: string) {
 
 function tagsOf(tags?: string) {
   return (tags || '').split(',').map(t => t.trim()).filter(Boolean)
+}
+
+function categoryFilterLink(id?: number) {
+  return id ? `/forum?categoryId=${id}` : '/forum'
+}
+
+function tagFilterLink(tag: string) {
+  return `/forum?tag=${encodeURIComponent(tag)}`
 }
 
 async function loadProfiles(ids: Array<number | undefined>) {
@@ -99,7 +112,7 @@ async function load() {
     categories.value = categoryData
     thread.value = threadData
     interaction.value = await forumApi.interaction(threadId.value)
-    await loadProfiles([threadData.authorId, threadData.lastReplyUserId])
+    await loadProfiles([threadData.authorId, threadData.lastReplyUserId, threadData.acceptedReplyUserId])
     await loadReplies(0)
   } catch (e: any) {
     error.value = e?.response?.data?.message || '帖子不存在或加载失败'
@@ -212,6 +225,33 @@ async function removeReply(reply: ForumReply) {
   await loadReplies(page.value)
 }
 
+async function acceptReply(reply: ForumReply) {
+  if (!thread.value) return
+  solutionSaving.value = true
+  try {
+    thread.value = await forumApi.acceptReply(thread.value.id, reply.id)
+    await loadProfiles([thread.value.acceptedReplyUserId])
+    toast.success(`已采纳 #${reply.floorNumber} 回复`)
+  } catch (e: any) {
+    toast.error(e?.response?.data?.message || '采纳失败')
+  } finally {
+    solutionSaving.value = false
+  }
+}
+
+async function clearAcceptedReply() {
+  if (!thread.value) return
+  solutionSaving.value = true
+  try {
+    thread.value = await forumApi.clearAcceptedReply(thread.value.id)
+    toast.success('已取消采纳')
+  } catch (e: any) {
+    toast.error(e?.response?.data?.message || '取消采纳失败')
+  } finally {
+    solutionSaving.value = false
+  }
+}
+
 function quoteReply(reply: ForumReply) {
   replyToId.value = reply.id
   form.contentMarkdown = `> 回复 #${reply.floorNumber} ${authorName(reply.authorId)}\n\n${form.contentMarkdown}`
@@ -245,13 +285,17 @@ onMounted(load)
           <header class="thread-head">
             <div>
               <div class="thread-meta">
-                <span class="chip chip-active">{{ categoryName(thread.categoryId) }}</span>
+                <RouterLink class="chip chip-active filter-link" :to="categoryFilterLink(thread.categoryId)">
+                  {{ categoryName(thread.categoryId) }}
+                </RouterLink>
+                <span v-if="thread.acceptedReplyId" class="solution-chip">已解决</span>
                 <span v-if="thread.status !== 'NORMAL'" class="badge badge-unknown">{{ thread.status }}</span>
               </div>
               <h1>{{ thread.title }}</h1>
               <p class="muted mono small">
                 <RouterLink class="author-link" :to="`/users/${thread.authorId}`">{{ authorName(thread.authorId) }}</RouterLink>
                 <span> · {{ fmt(thread.createdAt) }} · {{ thread.viewCount }} 浏览 · {{ thread.replyCount }} 回复</span>
+                <span v-if="thread.acceptedAt"> · solved {{ fmt(thread.acceptedAt) }}</span>
               </p>
             </div>
             <div class="thread-actions">
@@ -268,7 +312,9 @@ onMounted(load)
           </header>
 
           <div v-if="tagsOf(thread.tags).length" class="tags">
-            <span v-for="tag in tagsOf(thread.tags)" :key="tag" class="tag">{{ tag }}</span>
+            <RouterLink v-for="tag in tagsOf(thread.tags)" :key="tag" class="tag filter-link" :to="tagFilterLink(tag)">
+              {{ tag }}
+            </RouterLink>
           </div>
 
           <MarkdownView :source="thread.contentMarkdown" />
@@ -277,7 +323,10 @@ onMounted(load)
         <section class="reply-section">
           <div class="reply-head">
             <h2 class="section-title prompt">回复</h2>
-            <span class="muted mono">{{ replies?.totalElements || 0 }} replies</span>
+            <span class="muted mono">
+              {{ replies?.totalElements || 0 }} replies
+              <template v-if="acceptedReply"> · solution #{{ acceptedReply.floorNumber }}</template>
+            </span>
           </div>
 
           <StateBlock :loading="replyLoading" :empty="!replies?.content.length" empty-text="暂无回复。">
@@ -291,12 +340,30 @@ onMounted(load)
             </template>
 
             <div class="reply-list">
-              <article v-for="r in replies?.content" :key="r.id" class="card reply-card">
+              <article
+                v-for="r in replies?.content"
+                :key="r.id"
+                class="card reply-card"
+                :class="{ accepted: thread.acceptedReplyId === r.id }"
+              >
                 <div class="reply-info">
                   <span class="mono">#{{ r.floorNumber }}</span>
+                  <span v-if="thread.acceptedReplyId === r.id" class="solution-badge">解决方案</span>
                   <RouterLink class="author-link" :to="`/users/${r.authorId}`">{{ authorName(r.authorId) }}</RouterLink>
                   <span class="muted">{{ fmt(r.createdAt) }}</span>
                   <button class="btn btn-sm" @click="quoteReply(r)">引用</button>
+                  <button
+                    v-if="canManageThread && thread.acceptedReplyId !== r.id"
+                    class="btn btn-sm"
+                    :disabled="solutionSaving"
+                    @click="acceptReply(r)"
+                  >采纳</button>
+                  <button
+                    v-if="canManageThread && thread.acceptedReplyId === r.id"
+                    class="btn btn-sm"
+                    :disabled="solutionSaving"
+                    @click="clearAcceptedReply"
+                  >取消采纳</button>
                   <button class="btn btn-sm" @click="openReport('REPLY', r.id, `#${r.floorNumber} 回复`)">举报</button>
                   <button
                     v-if="auth.userId === r.authorId || auth.isModerator"
@@ -359,14 +426,38 @@ onMounted(load)
 .thread-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .thread-head h1 { margin: 10px 0 6px; font-size: clamp(26px, 4vw, 40px); line-height: 1.25; }
 .thread-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+.solution-chip,
+.solution-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, #16a34a 42%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, #16a34a 12%, var(--bg-inset));
+  color: #15803d;
+  font-weight: 700;
+}
+.solution-chip {
+  font-size: 12px;
+  padding: 4px 8px;
+}
 .small { font-size: 12px; }
 .tags { margin-bottom: 18px; }
+.filter-link:hover { text-decoration: none; }
 .reply-section { margin-top: 28px; }
 .reply-head, .form-foot, .pager { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .reply-list { display: flex; flex-direction: column; gap: 12px; }
 .reply-card { padding: 18px 20px; }
+.reply-card.accepted {
+  border-color: color-mix(in srgb, #16a34a 40%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, #16a34a 12%, transparent);
+}
 .reply-info { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; color: var(--text-soft); font-size: 13px; }
+.solution-badge {
+  font-size: 11px;
+  padding: 3px 7px;
+}
 .reply-info .btn { margin-left: auto; }
+.reply-info .btn ~ .btn { margin-left: 0; }
 .author-link { color: var(--primary); font-weight: 700; }
 .author-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .pager { justify-content: center; margin-top: 18px; }

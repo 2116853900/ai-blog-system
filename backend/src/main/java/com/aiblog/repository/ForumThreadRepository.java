@@ -44,6 +44,14 @@ public interface ForumThreadRepository extends JpaRepository<ForumThread, Long>,
     Page<ForumThread> findByAuthorIdAndStatusIn(Long authorId, Collection<ForumThread.ThreadStatus> statuses, Pageable pageable);
     List<ForumThread> findByLinkedRefTypeAndLinkedRefIdAndStatusIn(String refType, Long refId, Collection<ForumThread.ThreadStatus> statuses);
 
+    @Query("""
+            select t.tags from ForumThread t
+            where t.status in :visibleStatuses
+              and t.tags is not null
+              and trim(t.tags) <> ''
+            """)
+    List<String> findTagTextsByStatusIn(@Param("visibleStatuses") Collection<ForumThread.ThreadStatus> visibleStatuses);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query("update ForumThread t set t.viewCount = t.viewCount + 1 where t.id = :id")

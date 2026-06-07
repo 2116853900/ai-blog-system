@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { forumApi, userApi } from '../api'
-import type { ForumCategory, ForumThread, Page, UserProfile } from '../api/types'
+import type { ForumCategory, ForumTagSummary, ForumThread, Page, UserProfile } from '../api/types'
 import SearchBar from '../components/SearchBar.vue'
 import StateBlock from '../components/StateBlock.vue'
 import Skeleton from '../components/Skeleton.vue'
@@ -20,6 +20,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const categories = ref<ForumCategory[]>([])
+const popularTags = ref<ForumTagSummary[]>([])
 const threads = ref<Page<ForumThread> | null>(null)
 const profiles = ref<Record<number, UserProfile>>({})
 const loading = ref(true)
@@ -28,12 +29,29 @@ const selectedCategoryId = ref<number | undefined>(
   route.query.categoryId ? Number(route.query.categoryId) : undefined
 )
 const q = ref(typeof route.query.q === 'string' ? route.query.q : '')
+const selectedTag = ref(typeof route.query.tag === 'string' ? route.query.tag : '')
+const unansweredOnly = ref(route.query.unanswered === 'true')
+const solvedOnly = ref(route.query.solved === 'true')
 const sort = ref<ForumSort>(parseSort(route.query.sort))
 
 const parents = computed(() => categories.value.filter(c => !c.parentId))
+const activeFilters = computed(() => {
+  const filters: string[] = []
+  if (selectedCategoryId.value) filters.push(`板块：${categoryName(selectedCategoryId.value)}`)
+  if (q.value.trim()) filters.push(`搜索：${q.value.trim()}`)
+  if (selectedTag.value) filters.push(`标签：${selectedTag.value}`)
+  if (unansweredOnly.value) filters.push('只看未回复')
+  if (solvedOnly.value) filters.push('只看已解决')
+  if (sort.value !== 'latest') filters.push(`排序：${sortLabel(sort.value)}`)
+  return filters
+})
 
 function parseSort(value: unknown): ForumSort {
   return value === 'newest' || value === 'popular' ? value : 'latest'
+}
+
+function sortLabel(value: ForumSort) {
+  return sortOptions.find(option => option.value === value)?.label || '最近活跃'
 }
 
 function children(parentId: number) {
@@ -56,6 +74,14 @@ function authorName(id: number) {
   return profiles.value[id]?.nickname || profiles.value[id]?.username || `用户 ${id}`
 }
 
+function threadLink(id: number) {
+  return `/forum/threads/${id}`
+}
+
+function userLink(id: number) {
+  return `/users/${id}`
+}
+
 async function loadProfiles(ids: number[]) {
   const missing = [...new Set(ids)].filter(id => id && !profiles.value[id])
   if (!missing.length) return
@@ -72,6 +98,9 @@ async function loadThreads(nextPage = page.value) {
     threads.value = await forumApi.threads({
       categoryId: selectedCategoryId.value,
       q: q.value.trim() || undefined,
+      tag: selectedTag.value || undefined,
+      unanswered: unansweredOnly.value || undefined,
+      solved: solvedOnly.value || undefined,
       sort: sort.value,
       page: page.value,
       size: 20
@@ -93,11 +122,62 @@ async function syncQuery() {
   const query: Record<string, string> = {}
   if (selectedCategoryId.value) query.categoryId = String(selectedCategoryId.value)
   if (q.value.trim()) query.q = q.value.trim()
+  if (selectedTag.value) query.tag = selectedTag.value
+  if (unansweredOnly.value) query.unanswered = 'true'
+  if (solvedOnly.value) query.solved = 'true'
   if (sort.value !== 'latest') query.sort = sort.value
   await router.replace({ query })
 }
 
 async function searchThreads() {
+  page.value = 0
+  await syncQuery()
+  await loadThreads(0)
+}
+
+async function setUnansweredOnly(value: boolean) {
+  unansweredOnly.value = value
+  page.value = 0
+  await syncQuery()
+  await loadThreads(0)
+}
+
+function onUnansweredChange(event: Event) {
+  void setUnansweredOnly((event.target as HTMLInputElement).checked)
+}
+
+async function setSolvedOnly(value: boolean) {
+  solvedOnly.value = value
+  page.value = 0
+  await syncQuery()
+  await loadThreads(0)
+}
+
+function onSolvedChange(event: Event) {
+  void setSolvedOnly((event.target as HTMLInputElement).checked)
+}
+
+async function selectTag(tag: string) {
+  selectedTag.value = tag
+  page.value = 0
+  await syncQuery()
+  await loadThreads(0)
+}
+
+async function clearTag() {
+  selectedTag.value = ''
+  page.value = 0
+  await syncQuery()
+  await loadThreads(0)
+}
+
+async function clearAllFilters() {
+  selectedCategoryId.value = undefined
+  q.value = ''
+  selectedTag.value = ''
+  unansweredOnly.value = false
+  solvedOnly.value = false
+  sort.value = 'latest'
   page.value = 0
   await syncQuery()
   await loadThreads(0)
@@ -114,7 +194,12 @@ async function selectSort(value: ForumSort) {
 onMounted(async () => {
   loading.value = true
   try {
-    categories.value = await forumApi.categories()
+    const [categoryResult, tagResult] = await Promise.all([
+      forumApi.categories(),
+      forumApi.popularThreadTags({ limit: 16 })
+    ])
+    categories.value = categoryResult
+    popularTags.value = tagResult
     await loadThreads(0)
   } finally {
     loading.value = false
@@ -156,6 +241,20 @@ onMounted(async () => {
             <small>{{ c.threadCount }}</small>
           </button>
         </div>
+        <div v-if="popularTags.length" class="popular-tags">
+          <p class="popular-tags-title mono">热门标签</p>
+          <button
+            v-for="item in popularTags"
+            :key="item.tag"
+            type="button"
+            class="popular-tag"
+            :class="{ active: selectedTag === item.tag }"
+            @click="selectTag(item.tag)"
+          >
+            <span>{{ item.tag }}</span>
+            <small>{{ item.count }}</small>
+          </button>
+        </div>
       </aside>
 
       <main class="threads">
@@ -176,11 +275,24 @@ onMounted(async () => {
                 {{ option.label }}
               </button>
             </div>
+            <label class="filter-toggle">
+              <input type="checkbox" :checked="unansweredOnly" @change="onUnansweredChange" />
+              只看未回复
+            </label>
+            <label class="filter-toggle">
+              <input type="checkbox" :checked="solvedOnly" @change="onSolvedChange" />
+              只看已解决
+            </label>
             <SearchBar v-model="q" placeholder="搜索标题、正文或标签" @search="searchThreads" />
           </div>
         </div>
 
-        <StateBlock :loading="loading" :empty="!threads?.content.length" :empty-text="q ? '没有匹配的讨论。' : '暂无帖子，来发布第一条讨论吧。'">
+        <div v-if="activeFilters.length" class="active-filter">
+          <span v-for="filter in activeFilters" :key="filter" class="filter-chip">{{ filter }}</span>
+          <button type="button" @click="clearAllFilters">清除全部</button>
+        </div>
+
+        <StateBlock :loading="loading" :empty="!threads?.content.length" :empty-text="q || selectedTag || unansweredOnly || solvedOnly ? '没有匹配的讨论。' : '暂无帖子，来发布第一条讨论吧。'">
           <template #skeleton>
             <div class="thread-list">
               <div v-for="i in 5" :key="i" class="card thread-card">
@@ -191,30 +303,40 @@ onMounted(async () => {
           </template>
 
           <div class="thread-list">
-            <RouterLink
+            <div
               v-for="(t, i) in threads?.content"
               :key="t.id"
-              :to="`/forum/threads/${t.id}`"
               class="card thread-card rise"
               :style="{ animationDelay: `${Math.min(i * 0.035, 0.35)}s` }"
             >
               <div class="thread-main">
                 <div class="thread-top">
                   <span class="chip">{{ categoryName(t.categoryId) }}</span>
+                  <span v-if="t.acceptedReplyId" class="solution-chip">已解决</span>
                   <span v-if="t.status !== 'NORMAL'" class="badge badge-unknown">{{ t.status }}</span>
                 </div>
-                <h3>{{ t.title }}</h3>
+                <h3>
+                  <RouterLink :to="threadLink(t.id)" class="thread-title-link">{{ t.title }}</RouterLink>
+                </h3>
                 <div class="tags" v-if="tagsOf(t.tags).length">
-                  <span v-for="tag in tagsOf(t.tags)" :key="tag" class="tag">{{ tag }}</span>
+                  <button v-for="tag in tagsOf(t.tags)" :key="tag" type="button" class="tag tag-button" @click.prevent.stop="selectTag(tag)">
+                    {{ tag }}
+                  </button>
                 </div>
-                <p class="muted meta mono">by {{ authorName(t.authorId) }} · {{ fmt(t.createdAt) }}</p>
+                <p class="muted meta mono">
+                  by <RouterLink :to="userLink(t.authorId)" class="profile-link">{{ authorName(t.authorId) }}</RouterLink>
+                  · {{ fmt(t.createdAt) }}
+                </p>
               </div>
               <div class="stats mono">
                 <span>{{ t.replyCount }} 回复</span>
                 <span>{{ t.viewCount }} 浏览</span>
+                <span v-if="t.lastReplyUserId">
+                  last by <RouterLink :to="userLink(t.lastReplyUserId)" class="profile-link">{{ authorName(t.lastReplyUserId) }}</RouterLink>
+                </span>
                 <span>last {{ fmt(t.lastReplyAt || t.createdAt) }}</span>
               </div>
-            </RouterLink>
+            </div>
           </div>
         </StateBlock>
 
@@ -259,6 +381,42 @@ onMounted(async () => {
 .cat-parent small, .cat-child small { margin-left: auto; color: var(--text-dim); }
 .cat-all:hover, .cat-parent:hover, .cat-child:hover,
 .cat-all.active, .cat-parent.active, .cat-child.active { background: var(--primary-soft); color: var(--primary); }
+.popular-tags {
+  border-top: 1px solid var(--border);
+  margin-top: 14px;
+  padding-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.popular-tags-title {
+  width: 100%;
+  margin: 0 0 2px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.popular-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-inset);
+  color: var(--text-soft);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 8px;
+}
+.popular-tag small {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+.popular-tag:hover,
+.popular-tag.active {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  background: var(--primary-soft);
+  color: var(--primary);
+}
 .thread-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 360px); gap: 14px; align-items: center; margin-bottom: 12px; }
 .thread-head h2 { margin: 0; }
 .thread-tools { display: grid; gap: 10px; }
@@ -286,12 +444,67 @@ onMounted(async () => {
   background: var(--primary-soft);
   color: var(--primary);
 }
+.filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+.filter-toggle input {
+  accent-color: var(--primary);
+}
+.active-filter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+.filter-chip {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-inset);
+  color: var(--text-soft);
+  padding: 5px 8px;
+}
+.active-filter button {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  color: var(--primary);
+  cursor: pointer;
+  padding: 5px 8px;
+}
 .thread-list { display: flex; flex-direction: column; gap: 12px; }
 .thread-card { padding: 18px; color: var(--text); display: flex; justify-content: space-between; gap: 20px; }
 .thread-card:hover { text-decoration: none; }
 .thread-top { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.solution-chip {
+  border: 1px solid color-mix(in srgb, #16a34a 42%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, #16a34a 12%, var(--bg-inset));
+  color: #15803d;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+}
 .thread-main h3 { margin: 0 0 8px; font-size: 18px; }
+.thread-title-link { color: var(--text); }
+.thread-title-link:hover,
+.profile-link:hover { color: var(--primary); }
+.profile-link {
+  color: var(--text-soft);
+  text-decoration: none;
+}
 .tags { margin-bottom: 8px; }
+.tag-button {
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
 .meta { font-size: 12px; margin: 0; }
 .stats { color: var(--text-dim); font-size: 12px; display: flex; flex-direction: column; gap: 4px; text-align: right; min-width: 116px; }
 .pager { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 18px; }

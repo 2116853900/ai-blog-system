@@ -2,7 +2,7 @@ import http from './http'
 import type {
   Post, Skill, Mcp, ApiStation, ApiStationStatusCheck, Comment, RefType,
   SubmissionType, Submission, AuthResponse, UserProfile,
-  ForumCategory, ForumThread, ForumReply, Page, AdminOperationLog,
+  ForumCategory, ForumTagSummary, ForumThread, ForumReply, Page, AdminOperationLog,
   ThreadStatus, ReplyStatus, AdminForumUser, UserStatus, ForumInteraction,
   ResourceFavoriteInteraction, ResourceFavoriteItem, ResourceFavoriteRefType, UserNotification,
   ResourceReview, ResourceReviewSummary,
@@ -95,8 +95,10 @@ export const accountApi = {
 export const forumApi = {
   categories: () => http.get<ForumCategory[]>('/forum/categories').then(r => r.data),
   category: (id: number) => http.get<ForumCategory>(`/forum/categories/${id}`).then(r => r.data),
-  threads: (params?: { categoryId?: number; q?: string; sort?: 'latest' | 'newest' | 'popular'; page?: number; size?: number }) =>
+  threads: (params?: { categoryId?: number; q?: string; tag?: string; unanswered?: boolean; solved?: boolean; sort?: 'latest' | 'newest' | 'popular'; page?: number; size?: number }) =>
     http.get<Page<ForumThread>>('/forum/threads', { params }).then(r => r.data),
+  popularThreadTags: (params?: { limit?: number }) =>
+    http.get<ForumTagSummary[]>('/forum/threads/tags/popular', { params }).then(r => r.data),
   thread: (id: number) => http.get<ForumThread>(`/forum/threads/${id}`).then(r => r.data),
   linkedThreads: (refType: RefType, refId: number) =>
     http.get<ForumThread[]>('/forum/threads/linked', { params: { refType, refId } }).then(r => r.data),
@@ -105,6 +107,10 @@ export const forumApi = {
   updateThread: (id: number, body: { categoryId: number; title: string; contentMarkdown: string; tags?: string; linkedRefType?: RefType; linkedRefId?: number }) =>
     http.put<ForumThread>(`/forum/threads/${id}`, body).then(r => r.data),
   deleteThread: (id: number) => http.delete(`/forum/threads/${id}`),
+  acceptReply: (threadId: number, replyId: number) =>
+    http.post<ForumThread>(`/forum/threads/${threadId}/solution`, { replyId }).then(r => r.data),
+  clearAcceptedReply: (threadId: number) =>
+    http.delete<ForumThread>(`/forum/threads/${threadId}/solution`).then(r => r.data),
   replies: (threadId: number, params?: { page?: number; size?: number }) =>
     http.get<Page<ForumReply>>(`/forum/threads/${threadId}/replies`, { params }).then(r => r.data),
   createReply: (threadId: number, body: { contentMarkdown: string; replyToId?: number }) =>

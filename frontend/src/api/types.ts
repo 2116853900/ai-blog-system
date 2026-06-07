@@ -140,6 +140,11 @@ export interface ForumCategory {
   createdAt?: string
 }
 
+export interface ForumTagSummary {
+  tag: string
+  count: number
+}
+
 export type ThreadStatus = 'NORMAL' | 'PINNED' | 'FEATURED' | 'LOCKED' | 'HIDDEN' | 'DELETED'
 export type ReplyStatus = 'NORMAL' | 'HIDDEN' | 'DELETED'
 
@@ -158,6 +163,9 @@ export interface ForumThread {
   reportCount: number
   lastReplyUserId?: number
   lastReplyAt?: string
+  acceptedReplyId?: number
+  acceptedReplyUserId?: number
+  acceptedAt?: string
   linkedRefType?: RefType
   linkedRefId?: number
   createdAt: string

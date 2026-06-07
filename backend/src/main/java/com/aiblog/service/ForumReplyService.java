@@ -166,6 +166,7 @@ public class ForumReplyService {
                     replyRepo.save(r);
                     if (wasVisible) {
                         decrementThreadReplyCount(r.getThreadId());
+                        clearAcceptedReplyIfNeeded(r);
                     }
                     return true;
                 }).orElse(false);
@@ -180,6 +181,7 @@ public class ForumReplyService {
                 ForumReply saved = replyRepo.save(r);
                 if (wasVisible) {
                     decrementThreadReplyCount(r.getThreadId());
+                    clearAcceptedReplyIfNeeded(r);
                 }
                 recordOperation(operatorUsername, "HIDE_FORUM_REPLY", id, reason);
                 return saved;
@@ -211,6 +213,7 @@ public class ForumReplyService {
             ForumReply saved = replyRepo.save(r);
             if (wasVisible) {
                 decrementThreadReplyCount(r.getThreadId());
+                clearAcceptedReplyIfNeeded(r);
             }
             recordOperation(operatorUsername, "DELETE_FORUM_REPLY", id, reason);
             return saved;
@@ -260,6 +263,17 @@ public class ForumReplyService {
 
     private void incrementThreadReplyCount(Long threadId, Long authorId) {
         threadRepo.incrementReplyCount(threadId, authorId, Instant.now());
+    }
+
+    private void clearAcceptedReplyIfNeeded(ForumReply reply) {
+        threadRepo.findById(reply.getThreadId())
+                .filter(thread -> reply.getId().equals(thread.getAcceptedReplyId()))
+                .ifPresent(thread -> {
+                    thread.setAcceptedReplyId(null);
+                    thread.setAcceptedReplyUserId(null);
+                    thread.setAcceptedAt(null);
+                    threadRepo.save(thread);
+                });
     }
 
     private void recordOperation(String operatorUsername, String action, Long targetId, String detail) {
