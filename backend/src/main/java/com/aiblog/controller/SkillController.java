@@ -1,8 +1,10 @@
 package com.aiblog.controller;
 
 import com.aiblog.cache.PublicContentCacheService;
+import com.aiblog.dto.ResourceTagSummaryResponse;
 import com.aiblog.entity.Skill;
 import com.aiblog.repository.SkillRepository;
+import com.aiblog.service.ResourceTagService;
 import com.aiblog.service.SearchSpecs;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.data.domain.Sort;
@@ -17,10 +19,12 @@ public class SkillController {
 
     private final SkillRepository repo;
     private final PublicContentCacheService cacheService;
+    private final ResourceTagService tagService;
 
-    public SkillController(SkillRepository repo, PublicContentCacheService cacheService) {
+    public SkillController(SkillRepository repo, PublicContentCacheService cacheService, ResourceTagService tagService) {
         this.repo = repo;
         this.cacheService = cacheService;
+        this.tagService = tagService;
     }
 
     @GetMapping
@@ -33,6 +37,14 @@ public class SkillController {
                 () -> repo.findAll(
                         SearchSpecs.build(q, tag, category, List.of("name", "description", "tags")),
                         Sort.by(Sort.Direction.DESC, "recommendLevel").and(Sort.by(Sort.Direction.DESC, "createdAt"))));
+    }
+
+    @GetMapping("/tags/popular")
+    public List<ResourceTagSummaryResponse> popularTags(@RequestParam(defaultValue = "20") int limit) {
+        return cacheService.publicContent(
+                cacheService.skillsPopularTagsKey(limit),
+                new TypeReference<List<ResourceTagSummaryResponse>>() {},
+                () -> tagService.skillPopularTags(limit));
     }
 
     @GetMapping("/{id}")

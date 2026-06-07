@@ -11,6 +11,7 @@ import com.aiblog.repository.ApiStationRepository;
 import com.aiblog.repository.McpRepository;
 import com.aiblog.repository.SkillRepository;
 import com.aiblog.service.ApiStationStatusHistoryService;
+import com.aiblog.service.ResourceTagService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Sort;
@@ -37,7 +38,7 @@ class PublicResourceDetailControllerTest {
         skill.setId(1L);
         skill.setName("Prompt Engineering");
         when(repo.findById(1L)).thenReturn(Optional.of(skill));
-        SkillController controller = new SkillController(repo, cacheService());
+        SkillController controller = new SkillController(repo, cacheService(), mock(ResourceTagService.class));
 
         var response = controller.detail(1L);
 
@@ -49,7 +50,7 @@ class PublicResourceDetailControllerTest {
     void skillDetailReturnsNotFoundWhenMissing() {
         SkillRepository repo = mock(SkillRepository.class);
         when(repo.findById(404L)).thenReturn(Optional.empty());
-        SkillController controller = new SkillController(repo, cacheService());
+        SkillController controller = new SkillController(repo, cacheService(), mock(ResourceTagService.class));
 
         var response = controller.detail(404L);
 
@@ -63,7 +64,7 @@ class PublicResourceDetailControllerTest {
         mcp.setId(2L);
         mcp.setName("filesystem");
         when(repo.findById(2L)).thenReturn(Optional.of(mcp));
-        McpController controller = new McpController(repo, cacheService());
+        McpController controller = new McpController(repo, cacheService(), mock(ResourceTagService.class));
 
         var response = controller.detail(2L);
 
@@ -75,7 +76,7 @@ class PublicResourceDetailControllerTest {
     void mcpDetailReturnsNotFoundWhenMissing() {
         McpRepository repo = mock(McpRepository.class);
         when(repo.findById(404L)).thenReturn(Optional.empty());
-        McpController controller = new McpController(repo, cacheService());
+        McpController controller = new McpController(repo, cacheService(), mock(ResourceTagService.class));
 
         var response = controller.detail(404L);
 
@@ -90,7 +91,7 @@ class PublicResourceDetailControllerTest {
         station.setName("OpenAI 官方");
         station.setBaseUrl("https://api.openai.com");
         when(repo.findById(3L)).thenReturn(Optional.of(station));
-        ApiStationController controller = new ApiStationController(repo, mock(ApiStationStatusHistoryService.class), cacheService());
+        ApiStationController controller = new ApiStationController(repo, mock(ApiStationStatusHistoryService.class), cacheService(), mock(ResourceTagService.class));
 
         var response = controller.detail(3L);
 
@@ -102,7 +103,7 @@ class PublicResourceDetailControllerTest {
     void apiStationDetailReturnsNotFoundWhenMissing() {
         ApiStationRepository repo = mock(ApiStationRepository.class);
         when(repo.findById(404L)).thenReturn(Optional.empty());
-        ApiStationController controller = new ApiStationController(repo, mock(ApiStationStatusHistoryService.class), cacheService());
+        ApiStationController controller = new ApiStationController(repo, mock(ApiStationStatusHistoryService.class), cacheService(), mock(ResourceTagService.class));
 
         var response = controller.detail(404L);
 
@@ -119,7 +120,7 @@ class PublicResourceDetailControllerTest {
         station.setStatus(ApiStation.Status.UP);
         Sort expectedSort = Sort.by(Sort.Direction.ASC, "name");
         when(repo.findAll(any(Specification.class), eq(expectedSort))).thenReturn(List.of(station));
-        ApiStationController controller = new ApiStationController(repo, mock(ApiStationStatusHistoryService.class), cacheService());
+        ApiStationController controller = new ApiStationController(repo, mock(ApiStationStatusHistoryService.class), cacheService(), mock(ResourceTagService.class));
 
         List<ApiStation> response = controller.list(null, null, ApiStation.Status.UP);
 
@@ -140,7 +141,7 @@ class PublicResourceDetailControllerTest {
                 null
         );
         when(historyService.recent(3L, 10)).thenReturn(Optional.of(List.of(check)));
-        ApiStationController controller = new ApiStationController(repo, historyService, cacheService());
+        ApiStationController controller = new ApiStationController(repo, historyService, cacheService(), mock(ResourceTagService.class));
 
         var response = controller.checks(3L, 10);
 
@@ -153,7 +154,7 @@ class PublicResourceDetailControllerTest {
         ApiStationRepository repo = mock(ApiStationRepository.class);
         ApiStationStatusHistoryService historyService = mock(ApiStationStatusHistoryService.class);
         when(historyService.recent(404L, 20)).thenReturn(Optional.empty());
-        ApiStationController controller = new ApiStationController(repo, historyService, cacheService());
+        ApiStationController controller = new ApiStationController(repo, historyService, cacheService(), mock(ResourceTagService.class));
 
         var response = controller.checks(404L, 20);
 

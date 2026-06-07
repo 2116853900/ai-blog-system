@@ -2,9 +2,11 @@ package com.aiblog.controller;
 
 import com.aiblog.cache.PublicContentCacheService;
 import com.aiblog.dto.ApiStationStatusCheckResponse;
+import com.aiblog.dto.ResourceTagSummaryResponse;
 import com.aiblog.entity.ApiStation;
 import com.aiblog.repository.ApiStationRepository;
 import com.aiblog.service.ApiStationStatusHistoryService;
+import com.aiblog.service.ResourceTagService;
 import com.aiblog.service.SearchSpecs;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.data.domain.Sort;
@@ -20,13 +22,16 @@ public class ApiStationController {
     private final ApiStationRepository repo;
     private final ApiStationStatusHistoryService historyService;
     private final PublicContentCacheService cacheService;
+    private final ResourceTagService tagService;
 
     public ApiStationController(ApiStationRepository repo,
                                 ApiStationStatusHistoryService historyService,
-                                PublicContentCacheService cacheService) {
+                                PublicContentCacheService cacheService,
+                                ResourceTagService tagService) {
         this.repo = repo;
         this.historyService = historyService;
         this.cacheService = cacheService;
+        this.tagService = tagService;
     }
 
     @GetMapping
@@ -43,6 +48,14 @@ public class ApiStationController {
                     }
                     return repo.findAll(spec, Sort.by(Sort.Direction.ASC, "name"));
                 });
+    }
+
+    @GetMapping("/tags/popular")
+    public List<ResourceTagSummaryResponse> popularTags(@RequestParam(defaultValue = "20") int limit) {
+        return cacheService.publicContent(
+                cacheService.apiStationsPopularTagsKey(limit),
+                new TypeReference<List<ResourceTagSummaryResponse>>() {},
+                () -> tagService.apiStationPopularTags(limit));
     }
 
     @GetMapping("/{id}")

@@ -145,6 +145,11 @@ export interface ForumTagSummary {
   count: number
 }
 
+export interface ResourceTagSummary {
+  tag: string
+  count: number
+}
+
 export type ThreadStatus = 'NORMAL' | 'PINNED' | 'FEATURED' | 'LOCKED' | 'HIDDEN' | 'DELETED'
 export type ReplyStatus = 'NORMAL' | 'HIDDEN' | 'DELETED'
 

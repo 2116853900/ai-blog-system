@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { publicApi } from '../api'
-import type { Mcp } from '../api/types'
+import type { Mcp, ResourceTagSummary } from '../api/types'
 import SearchBar from '../components/SearchBar.vue'
 import TagList from '../components/TagList.vue'
 import StarRating from '../components/StarRating.vue'
@@ -18,8 +18,19 @@ const {
 } = useListView<Mcp>(publicApi.mcps)
 
 const selected = ref<Mcp | null>(null)
+const popularTags = ref<ResourceTagSummary[]>([])
 function open(m: Mcp) { selected.value = m }
 function close() { selected.value = null }
+
+async function loadPopularTags() {
+  try {
+    popularTags.value = await publicApi.mcpPopularTags({ limit: 12 })
+  } catch {
+    popularTags.value = []
+  }
+}
+
+onMounted(loadPopularTags)
 </script>
 
 <template>
@@ -41,6 +52,20 @@ function close() { selected.value = null }
         :aria-pressed="activeCategory === c"
         @click="selectCategory(c)"
       >{{ c }}</button>
+    </div>
+
+    <div v-if="popularTags.length" class="popular-tags" role="group" aria-label="热门标签">
+      <span class="popular-label mono">热门标签</span>
+      <button
+        v-for="tag in popularTags"
+        :key="tag.tag"
+        class="tag-chip"
+        :class="{ active: activeTag === tag.tag }"
+        :aria-pressed="activeTag === tag.tag"
+        @click="toggleTag(tag.tag)"
+      >
+        {{ tag.tag }}<span>{{ tag.count }}</span>
+      </button>
     </div>
 
     <StateBlock :loading="loading" :empty="isEmpty" empty-text="没有匹配的 MCP，换个关键词试试。" class="block-area">
@@ -110,6 +135,15 @@ function close() { selected.value = null }
 .page-head { margin-bottom: 16px; }
 .block-area { margin-top: 20px; }
 .chips { margin-top: 14px; }
+.popular-tags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.popular-label { color: var(--text-dim); font-size: 12px; }
+.tag-chip {
+  border: 1px solid var(--border); background: var(--bg-soft); color: var(--text-soft);
+  border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 12px; padding: 5px 10px;
+}
+.tag-chip span { color: var(--text-dim); font-family: var(--font-mono); font-size: 11px; }
+.tag-chip:hover, .tag-chip.active { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
 .item {
   padding: 20px; display: flex; flex-direction: column; gap: 10px;
   text-align: left; width: 100%; cursor: pointer; font: inherit; color: inherit;

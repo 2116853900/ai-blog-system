@@ -7,27 +7,36 @@ import type {
   ResourceFavoriteInteraction, ResourceFavoriteItem, ResourceFavoriteRefType, UserNotification,
   ResourceReview, ResourceReviewSummary,
   ContentReport, ContentReportTarget, ReportReasonType, ReportStatus, ReportTargetType, CommentStatus,
-  GlobalSearchResponse, AdminDashboard
+  GlobalSearchResponse, AdminDashboard, ResourceTagSummary
 } from './types'
 
 // ---------- 公开接口 ----------
 export const publicApi = {
-  posts: () => http.get<Post[]>('/posts').then(r => r.data),
+  posts: (params?: { q?: string; tag?: string; category?: string }) =>
+    http.get<Post[]>('/posts', { params }).then(r => r.data),
   post: (slug: string) => http.get<Post>(`/posts/${slug}`).then(r => r.data),
+  postPopularTags: (params?: { limit?: number }) =>
+    http.get<ResourceTagSummary[]>('/posts/tags/popular', { params }).then(r => r.data),
   search: (params?: { q?: string; limit?: number }) =>
     http.get<GlobalSearchResponse>('/search', { params }).then(r => r.data),
 
   skills: (params?: { q?: string; tag?: string; category?: string }) =>
     http.get<Skill[]>('/skills', { params }).then(r => r.data),
   skill: (id: number) => http.get<Skill>(`/skills/${id}`).then(r => r.data),
+  skillPopularTags: (params?: { limit?: number }) =>
+    http.get<ResourceTagSummary[]>('/skills/tags/popular', { params }).then(r => r.data),
 
   mcps: (params?: { q?: string; tag?: string; category?: string }) =>
     http.get<Mcp[]>('/mcps', { params }).then(r => r.data),
   mcp: (id: number) => http.get<Mcp>(`/mcps/${id}`).then(r => r.data),
+  mcpPopularTags: (params?: { limit?: number }) =>
+    http.get<ResourceTagSummary[]>('/mcps/tags/popular', { params }).then(r => r.data),
 
   apiStations: (params?: { q?: string; tag?: string; status?: ApiStatus }) =>
     http.get<ApiStation[]>('/api-stations', { params }).then(r => r.data),
   apiStation: (id: number) => http.get<ApiStation>(`/api-stations/${id}`).then(r => r.data),
+  apiStationPopularTags: (params?: { limit?: number }) =>
+    http.get<ResourceTagSummary[]>('/api-stations/tags/popular', { params }).then(r => r.data),
   apiStationChecks: (id: number, params?: { limit?: number }) =>
     http.get<ApiStationStatusCheck[]>(`/api-stations/${id}/checks`, { params }).then(r => r.data),
 

@@ -42,7 +42,15 @@ public class PublicContentCacheService {
     }
 
     public String postsListKey() {
-        return POSTS_PREFIX + "list";
+        return postsListKey(null, null, null);
+    }
+
+    public String postsListKey(String q, String tag, String category) {
+        return POSTS_PREFIX + "list:" + params(q, tag, category);
+    }
+
+    public String postsPopularTagsKey(int limit) {
+        return POSTS_PREFIX + "tags:popular:" + cappedLimit(limit);
     }
 
     public String postDetailKey(String slug) {
@@ -53,6 +61,10 @@ public class PublicContentCacheService {
         return SKILLS_PREFIX + "list:" + params(q, tag, category);
     }
 
+    public String skillsPopularTagsKey(int limit) {
+        return SKILLS_PREFIX + "tags:popular:" + cappedLimit(limit);
+    }
+
     public String skillDetailKey(Long id) {
         return SKILLS_PREFIX + "detail:" + id;
     }
@@ -61,12 +73,20 @@ public class PublicContentCacheService {
         return MCPS_PREFIX + "list:" + params(q, tag, category);
     }
 
+    public String mcpsPopularTagsKey(int limit) {
+        return MCPS_PREFIX + "tags:popular:" + cappedLimit(limit);
+    }
+
     public String mcpDetailKey(Long id) {
         return MCPS_PREFIX + "detail:" + id;
     }
 
     public String apiStationsListKey(String q, String tag, ApiStation.Status status) {
         return API_STATIONS_PREFIX + "list:" + params(q, tag, status);
+    }
+
+    public String apiStationsPopularTagsKey(int limit) {
+        return API_STATIONS_PREFIX + "tags:popular:" + cappedLimit(limit);
     }
 
     public String apiStationDetailKey(Long id) {
@@ -115,6 +135,10 @@ public class PublicContentCacheService {
 
     private String params(Object first, Object second, Object third) {
         return normalize(first) + ":" + normalize(second) + ":" + normalize(third);
+    }
+
+    private int cappedLimit(int limit) {
+        return Math.max(1, Math.min(limit, 50));
     }
 
     private String normalize(Object value) {
