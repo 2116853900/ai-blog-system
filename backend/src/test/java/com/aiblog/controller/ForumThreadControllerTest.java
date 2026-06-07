@@ -136,6 +136,21 @@ class ForumThreadControllerTest {
     }
 
     @Test
+    void listForwardsUnsolvedFilterWithSort() {
+        ForumThreadService threadService = mock(ForumThreadService.class);
+        ForumUserService userService = mock(ForumUserService.class);
+        ForumThreadController controller = new ForumThreadController(threadService, userService);
+        PageRequest expectedPage = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<ForumThread> page = new PageImpl<>(List.of(), expectedPage, 0);
+        when(threadService.search(null, null, null, null, false, expectedPage)).thenReturn(page);
+
+        Page<ForumThread> response = controller.list(null, null, null, null, false, "newest", 0, 20);
+
+        assertThat(response).isSameAs(page);
+        verify(threadService).search(null, null, null, null, false, expectedPage);
+    }
+
+    @Test
     void popularTagsForwardsLimit() {
         ForumThreadService threadService = mock(ForumThreadService.class);
         ForumUserService userService = mock(ForumUserService.class);

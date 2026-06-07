@@ -9,11 +9,17 @@ import Skeleton from '../components/Skeleton.vue'
 import { useAuthStore } from '../stores/auth'
 
 type ForumSort = 'latest' | 'newest' | 'popular'
+type SolveFilter = 'all' | 'unsolved' | 'solved'
 
 const sortOptions: Array<{ value: ForumSort; label: string }> = [
   { value: 'latest', label: '最近活跃' },
   { value: 'newest', label: '最新发布' },
   { value: 'popular', label: '热门' }
+]
+const solveFilterOptions: Array<{ value: SolveFilter; label: string }> = [
+  { value: 'all', label: '全部状态' },
+  { value: 'unsolved', label: '未解决' },
+  { value: 'solved', label: '已解决' }
 ]
 
 const route = useRoute()
@@ -31,7 +37,7 @@ const selectedCategoryId = ref<number | undefined>(
 const q = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const selectedTag = ref(typeof route.query.tag === 'string' ? route.query.tag : '')
 const unansweredOnly = ref(route.query.unanswered === 'true')
-const solvedOnly = ref(route.query.solved === 'true')
+const solveFilter = ref<SolveFilter>(parseSolveFilter(route.query.solved))
 const sort = ref<ForumSort>(parseSort(route.query.sort))
 
 const parents = computed(() => categories.value.filter(c => !c.parentId))
@@ -41,10 +47,26 @@ const activeFilters = computed(() => {
   if (q.value.trim()) filters.push(`搜索：${q.value.trim()}`)
   if (selectedTag.value) filters.push(`标签：${selectedTag.value}`)
   if (unansweredOnly.value) filters.push('只看未回复')
-  if (solvedOnly.value) filters.push('只看已解决')
+  if (solveFilter.value !== 'all') filters.push(`状态：${solveFilterLabel(solveFilter.value)}`)
   if (sort.value !== 'latest') filters.push(`排序：${sortLabel(sort.value)}`)
   return filters
 })
+
+function parseSolveFilter(value: unknown): SolveFilter {
+  if (value === 'true') return 'solved'
+  if (value === 'false') return 'unsolved'
+  return 'all'
+}
+
+function solvedParam() {
+  if (solveFilter.value === 'solved') return true
+  if (solveFilter.value === 'unsolved') return false
+  return undefined
+}
+
+function solveFilterLabel(value: SolveFilter) {
+  return solveFilterOptions.find(option => option.value === value)?.label || '全部状态'
+}
 
 function parseSort(value: unknown): ForumSort {
   return value === 'newest' || value === 'popular' ? value : 'latest'
@@ -100,7 +122,7 @@ async function loadThreads(nextPage = page.value) {
       q: q.value.trim() || undefined,
       tag: selectedTag.value || undefined,
       unanswered: unansweredOnly.value || undefined,
-      solved: solvedOnly.value || undefined,
+      solved: solvedParam(),
       sort: sort.value,
       page: page.value,
       size: 20
@@ -124,7 +146,7 @@ async function syncQuery() {
   if (q.value.trim()) query.q = q.value.trim()
   if (selectedTag.value) query.tag = selectedTag.value
   if (unansweredOnly.value) query.unanswered = 'true'
-  if (solvedOnly.value) query.solved = 'true'
+  if (solveFilter.value !== 'all') query.solved = String(solvedParam())
   if (sort.value !== 'latest') query.sort = sort.value
   await router.replace({ query })
 }
@@ -146,15 +168,12 @@ function onUnansweredChange(event: Event) {
   void setUnansweredOnly((event.target as HTMLInputElement).checked)
 }
 
-async function setSolvedOnly(value: boolean) {
-  solvedOnly.value = value
+async function selectSolveFilter(value: SolveFilter) {
+  if (solveFilter.value === value) return
+  solveFilter.value = value
   page.value = 0
   await syncQuery()
   await loadThreads(0)
-}
-
-function onSolvedChange(event: Event) {
-  void setSolvedOnly((event.target as HTMLInputElement).checked)
 }
 
 async function selectTag(tag: string) {
@@ -176,7 +195,7 @@ async function clearAllFilters() {
   q.value = ''
   selectedTag.value = ''
   unansweredOnly.value = false
-  solvedOnly.value = false
+  solveFilter.value = 'all'
   sort.value = 'latest'
   page.value = 0
   await syncQuery()
@@ -279,10 +298,17 @@ onMounted(async () => {
               <input type="checkbox" :checked="unansweredOnly" @change="onUnansweredChange" />
               只看未回复
             </label>
-            <label class="filter-toggle">
-              <input type="checkbox" :checked="solvedOnly" @change="onSolvedChange" />
-              只看已解决
-            </label>
+            <div class="status-tabs" aria-label="解决状态筛选">
+              <button
+                v-for="option in solveFilterOptions"
+                :key="option.value"
+                type="button"
+                :class="{ active: solveFilter === option.value }"
+                @click="selectSolveFilter(option.value)"
+              >
+                {{ option.label }}
+              </button>
+            </div>
             <SearchBar v-model="q" placeholder="搜索标题、正文或标签" @search="searchThreads" />
           </div>
         </div>
@@ -292,7 +318,7 @@ onMounted(async () => {
           <button type="button" @click="clearAllFilters">清除全部</button>
         </div>
 
-        <StateBlock :loading="loading" :empty="!threads?.content.length" :empty-text="q || selectedTag || unansweredOnly || solvedOnly ? '没有匹配的讨论。' : '暂无帖子，来发布第一条讨论吧。'">
+        <StateBlock :loading="loading" :empty="!threads?.content.length" :empty-text="q || selectedTag || unansweredOnly || solveFilter !== 'all' ? '没有匹配的讨论。' : '暂无帖子，来发布第一条讨论吧。'">
           <template #skeleton>
             <div class="thread-list">
               <div v-for="i in 5" :key="i" class="card thread-card">
@@ -420,7 +446,8 @@ onMounted(async () => {
 .thread-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 360px); gap: 14px; align-items: center; margin-bottom: 12px; }
 .thread-head h2 { margin: 0; }
 .thread-tools { display: grid; gap: 10px; }
-.sort-tabs {
+.sort-tabs,
+.status-tabs {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -429,7 +456,8 @@ onMounted(async () => {
   border-radius: var(--radius-sm);
   background: var(--bg-inset);
 }
-.sort-tabs button {
+.sort-tabs button,
+.status-tabs button {
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -440,7 +468,9 @@ onMounted(async () => {
   white-space: nowrap;
 }
 .sort-tabs button:hover,
-.sort-tabs button.active {
+.sort-tabs button.active,
+.status-tabs button:hover,
+.status-tabs button.active {
   background: var(--primary-soft);
   color: var(--primary);
 }
@@ -515,7 +545,7 @@ onMounted(async () => {
 @media (max-width: 640px) {
   .forum-hero, .thread-card { flex-direction: column; align-items: stretch; }
   .thread-head { grid-template-columns: 1fr; }
-  .sort-tabs { overflow-x: auto; }
+  .sort-tabs, .status-tabs { overflow-x: auto; }
   .stats { text-align: left; flex-direction: row; flex-wrap: wrap; }
 }
 </style>
