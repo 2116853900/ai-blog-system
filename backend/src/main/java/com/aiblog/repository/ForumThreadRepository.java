@@ -104,4 +104,13 @@ public interface ForumThreadRepository extends JpaRepository<ForumThread, Long>,
     @Transactional
     @Query("update ForumThread t set t.reportCount = t.reportCount + 1 where t.id = :id")
     int incrementReportCount(@Param("id") Long id);
+
+    @Query("select coalesce(sum(t.viewCount), 0) from ForumThread t where t.status in :statuses")
+    long sumViewCountByStatusIn(@Param("statuses") Collection<ForumThread.ThreadStatus> statuses);
+
+    @Query("select coalesce(sum(t.likeCount), 0) from ForumThread t where t.status in :statuses")
+    long sumLikeCountByStatusIn(@Param("statuses") Collection<ForumThread.ThreadStatus> statuses);
+
+    @Query("select coalesce(sum(t.favoriteCount), 0) from ForumThread t where t.status in :statuses")
+    long sumFavoriteCountByStatusIn(@Param("statuses") Collection<ForumThread.ThreadStatus> statuses);
 }

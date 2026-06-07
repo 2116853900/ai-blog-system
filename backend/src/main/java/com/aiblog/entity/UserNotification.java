@@ -20,7 +20,7 @@ import java.time.Instant;
         })
 public class UserNotification {
 
-    public enum NotificationType { THREAD_REPLY, REPLY_REPLY }
+    public enum NotificationType { THREAD_REPLY, REPLY_REPLY, THREAD_SUBSCRIPTION_REPLY }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

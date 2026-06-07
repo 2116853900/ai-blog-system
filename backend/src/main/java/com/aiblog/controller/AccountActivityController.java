@@ -1,5 +1,7 @@
 package com.aiblog.controller;
 
+import com.aiblog.dto.ForumSubscriptionSummaryResponse;
+import com.aiblog.dto.ForumThreadSubscriptionItemResponse;
 import com.aiblog.entity.ForumReply;
 import com.aiblog.entity.ForumThread;
 import com.aiblog.entity.ForumUser;
@@ -59,6 +61,21 @@ public class AccountActivityController {
                                        @RequestParam(defaultValue = "10") int size) {
         Long userId = requireForumUserId(auth);
         return interactionService.listFavoriteThreads(userId, PageRequest.of(normalizePage(page), normalizeSize(size)));
+    }
+
+    @GetMapping("/subscriptions")
+    public Page<ForumThreadSubscriptionItemResponse> subscriptions(Authentication auth,
+                                                                   @RequestParam(defaultValue = "false") boolean unreadOnly,
+                                                                   @RequestParam(defaultValue = "0") int page,
+                                                                   @RequestParam(defaultValue = "10") int size) {
+        Long userId = requireForumUserId(auth);
+        return interactionService.listSubscriptionItems(userId, unreadOnly, PageRequest.of(normalizePage(page), normalizeSize(size)));
+    }
+
+    @GetMapping("/subscription-summary")
+    public ForumSubscriptionSummaryResponse subscriptionSummary(Authentication auth) {
+        Long userId = requireForumUserId(auth);
+        return interactionService.subscriptionSummary(userId);
     }
 
     private Long requireForumUserId(Authentication auth) {

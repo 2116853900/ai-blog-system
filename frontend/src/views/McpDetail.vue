@@ -6,6 +6,7 @@ import type { Mcp } from '../api/types'
 import CommentSection from '../components/CommentSection.vue'
 import CopyButton from '../components/CopyButton.vue'
 import LinkedDiscussions from '../components/LinkedDiscussions.vue'
+import RelatedResources from '../components/RelatedResources.vue'
 import ResourceFavoriteButton from '../components/ResourceFavoriteButton.vue'
 import ResourceReviewPanel from '../components/ResourceReviewPanel.vue'
 import Skeleton from '../components/Skeleton.vue'
@@ -77,6 +78,9 @@ watch(() => route.params.id, load)
       <a v-if="mcp.repoUrl" :href="mcp.repoUrl" target="_blank" rel="noopener" class="btn btn-primary action">
         查看仓库 ↗
       </a>
+
+      <hr class="sep" />
+      <RelatedResources ref-type="MCP" :ref-id="mcp.id" />
 
       <hr class="sep" />
       <LinkedDiscussions ref-type="MCP" :ref-id="mcp.id" :source-title="mcp.name" />

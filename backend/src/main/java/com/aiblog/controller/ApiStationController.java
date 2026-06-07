@@ -2,6 +2,7 @@ package com.aiblog.controller;
 
 import com.aiblog.cache.PublicContentCacheService;
 import com.aiblog.dto.ApiStationStatusCheckResponse;
+import com.aiblog.dto.ApiStationStatusSummaryResponse;
 import com.aiblog.dto.ResourceTagSummaryResponse;
 import com.aiblog.entity.ApiStation;
 import com.aiblog.repository.ApiStationRepository;
@@ -71,6 +72,14 @@ public class ApiStationController {
     public ResponseEntity<List<ApiStationStatusCheckResponse>> checks(@PathVariable Long id,
                                                                       @RequestParam(defaultValue = "20") int limit) {
         return historyService.recent(id, limit)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{id}/checks/summary")
+    public ResponseEntity<ApiStationStatusSummaryResponse> checkSummary(@PathVariable Long id,
+                                                                        @RequestParam(defaultValue = "30") int limit) {
+        return historyService.summary(id, limit)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }

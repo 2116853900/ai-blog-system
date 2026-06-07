@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { publicApi } from '../api'
-import type { ApiStation, ApiStationStatusCheck } from '../api/types'
+import type { ApiStation, ApiStationStatusCheck, ApiStationStatusSummary } from '../api/types'
 import CommentSection from '../components/CommentSection.vue'
 import CopyButton from '../components/CopyButton.vue'
 import LinkedDiscussions from '../components/LinkedDiscussions.vue'
+import RelatedResources from '../components/RelatedResources.vue'
 import ResourceFavoriteButton from '../components/ResourceFavoriteButton.vue'
 import ResourceReviewPanel from '../components/ResourceReviewPanel.vue'
 import Skeleton from '../components/Skeleton.vue'
@@ -15,8 +16,11 @@ import TagList from '../components/TagList.vue'
 const route = useRoute()
 const station = ref<ApiStation | null>(null)
 const checks = ref<ApiStationStatusCheck[]>([])
+const summary = ref<ApiStationStatusSummary | null>(null)
 const loading = ref(true)
 const notFound = ref(false)
+
+const trendChecks = computed(() => checks.value.slice().reverse())
 
 function models(s?: string): string[] {
   return (s || '').split(/[,，]/).map(model => model.trim()).filter(Boolean)
@@ -26,16 +30,32 @@ function fmtTime(d?: string): string {
   return d ? new Date(d).toLocaleString('zh-CN') : ''
 }
 
+function fmtPercent(value?: number): string {
+  return typeof value === 'number' ? `${Math.round(value * 100)}%` : '--'
+}
+
+function fmtLatency(value?: number): string {
+  return typeof value === 'number' ? `${value} ms` : '无数据'
+}
+
+function statusTitle(check: ApiStationStatusCheck): string {
+  const latency = typeof check.latencyMs === 'number' ? ` / ${check.latencyMs} ms` : ''
+  const error = check.errorMessage ? ` / ${check.errorMessage}` : ''
+  return `${fmtTime(check.checkedAt)} / ${check.status}${latency}${error}`
+}
+
 async function load() {
   loading.value = true
   notFound.value = false
   station.value = null
   checks.value = []
+  summary.value = null
   try {
     const id = Number(route.params.id)
-    const [stationResult, checksResult] = await Promise.allSettled([
+    const [stationResult, checksResult, summaryResult] = await Promise.allSettled([
       publicApi.apiStation(id),
-      publicApi.apiStationChecks(id, { limit: 12 })
+      publicApi.apiStationChecks(id, { limit: 12 }),
+      publicApi.apiStationCheckSummary(id, { limit: 30 })
     ])
     if (stationResult.status === 'rejected') {
       notFound.value = true
@@ -43,6 +63,7 @@ async function load() {
     }
     station.value = stationResult.value
     checks.value = checksResult.status === 'fulfilled' ? checksResult.value : []
+    summary.value = summaryResult.status === 'fulfilled' ? summaryResult.value : null
   } catch {
     notFound.value = true
   } finally {
@@ -105,9 +126,41 @@ watch(() => route.params.id, load)
       <hr class="sep" />
       <section class="history">
         <div class="section-head">
-          <h2 class="mono">最近检测</h2>
-          <span v-if="checks.length" class="muted mono">{{ checks.length }} 条</span>
+          <div>
+            <h2 class="mono">可用性监控</h2>
+            <p v-if="summary?.sampleSize" class="muted mono window">
+              统计 {{ summary.sampleSize }} 次样本 · {{ fmtTime(summary.firstCheckedAt) }} - {{ fmtTime(summary.lastCheckedAt) }}
+            </p>
+          </div>
+          <span v-if="checks.length" class="muted mono">最近 {{ checks.length }} 条</span>
         </div>
+        <div v-if="summary?.sampleSize" class="availability">
+          <div class="metric-cell">
+            <span class="metric-label mono">可用率</span>
+            <strong class="metric-value mono">{{ fmtPercent(summary.uptimeRate) }}</strong>
+            <span class="metric-note muted">UP {{ summary.upCount }} / DOWN {{ summary.downCount }} / UNKNOWN {{ summary.unknownCount }}</span>
+          </div>
+          <div class="metric-cell">
+            <span class="metric-label mono">平均延迟</span>
+            <strong class="metric-value mono">{{ fmtLatency(summary.averageLatencyMs) }}</strong>
+            <span class="metric-note muted">最快 {{ fmtLatency(summary.fastestLatencyMs) }} · 最慢 {{ fmtLatency(summary.slowestLatencyMs) }}</span>
+          </div>
+          <div class="metric-cell">
+            <span class="metric-label mono">最长故障</span>
+            <strong class="metric-value mono">{{ summary.longestFailureStreak }} 次</strong>
+            <span class="metric-note muted">当前状态 {{ summary.currentStatus }}</span>
+          </div>
+          <div class="trend-panel" aria-label="最近检测趋势">
+            <span
+              v-for="check in trendChecks"
+              :key="check.id"
+              class="trend-bar"
+              :class="`trend-${check.status.toLowerCase()}`"
+              :title="statusTitle(check)"
+            />
+          </div>
+        </div>
+        <p v-else class="muted empty-history">暂无足够样本生成可用性分析。</p>
         <div v-if="checks.length" class="check-list">
           <div v-for="check in checks" :key="check.id" class="check-row">
             <StatusBadge :status="check.status" :latency-ms="check.latencyMs" />
@@ -119,6 +172,9 @@ watch(() => route.params.id, load)
         </div>
         <p v-else class="muted empty-history">暂无检测历史。</p>
       </section>
+
+      <hr class="sep" />
+      <RelatedResources ref-type="API" :ref-id="station.id" />
 
       <hr class="sep" />
       <LinkedDiscussions ref-type="API" :ref-id="station.id" :source-title="station.name" />
@@ -155,8 +211,60 @@ watch(() => route.params.id, load)
   color: var(--text-soft);
 }
 .history { display: flex; flex-direction: column; gap: 12px; }
-.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .section-head h2 { margin: 0; font-size: 18px; line-height: 1.4; }
+.window { margin: 3px 0 0; font-size: 11px; overflow-wrap: anywhere; }
+.availability {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--border);
+}
+.metric-cell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 13px;
+  background: linear-gradient(180deg, var(--bg-soft), var(--bg-inset));
+}
+.metric-label { font-size: 11px; color: var(--text-soft); }
+.metric-value { font-size: 23px; line-height: 1.1; color: var(--primary); }
+.metric-note { font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+.trend-panel {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10px, 1fr));
+  gap: 4px;
+  min-height: 34px;
+  padding: 10px;
+  background: var(--bg-inset);
+}
+.trend-bar {
+  min-width: 10px;
+  height: 14px;
+  align-self: center;
+  border-radius: 3px;
+  border: 1px solid var(--border-strong);
+  background: var(--text-dim);
+}
+.trend-up {
+  background: color-mix(in srgb, var(--accent) 72%, var(--bg));
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: 0 0 14px -8px var(--accent);
+}
+.trend-down {
+  height: 24px;
+  background: color-mix(in srgb, var(--danger) 78%, var(--bg));
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--border));
+}
+.trend-unknown {
+  height: 18px;
+  background: var(--bg-soft);
+}
 .check-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .check-row {
   display: grid;
@@ -176,6 +284,8 @@ watch(() => route.params.id, load)
   .detail-head { flex-direction: column; }
   .head-actions { justify-content: flex-start; }
   .detail-card { padding: 20px; }
+  .section-head { flex-direction: column; }
+  .availability { grid-template-columns: 1fr; }
   .check-row { grid-template-columns: 1fr; align-items: flex-start; }
 }
 </style>

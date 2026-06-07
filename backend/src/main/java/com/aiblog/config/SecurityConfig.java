@@ -31,7 +31,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // 公开接口
                 .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/search", "/api/search/**",
+                .requestMatchers(HttpMethod.GET, "/api/search", "/api/search/**", "/api/stats", "/api/stats/**",
                         "/api/related-resources", "/api/related-resources/**",
                         "/api/posts/**", "/api/skills/**",
                         "/api/mcps/**", "/api/api-stations/**", "/api/comments/**",

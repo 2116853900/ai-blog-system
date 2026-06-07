@@ -1,6 +1,7 @@
 package com.aiblog.service;
 
 import com.aiblog.dto.ApiStationStatusCheckResponse;
+import com.aiblog.dto.ApiStationStatusSummaryResponse;
 import com.aiblog.entity.ApiStation;
 import com.aiblog.entity.ApiStationStatusCheck;
 import com.aiblog.repository.ApiStationRepository;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.IntSummaryStatistics;
 import java.util.List;
 import java.util.Optional;
 
@@ -54,6 +56,67 @@ public class ApiStationStatusHistoryService {
                 ).stream()
                 .map(ApiStationStatusCheckResponse::from)
                 .toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<ApiStationStatusSummaryResponse> summary(Long stationId, int limit) {
+        if (!stationRepo.existsById(stationId)) {
+            return Optional.empty();
+        }
+        List<ApiStationStatusCheck> checks = checkRepo.findByStationIdOrderByCheckedAtDesc(
+                stationId,
+                PageRequest.of(0, normalizeLimit(limit))
+        );
+        int sampleSize = checks.size();
+        int upCount = 0;
+        int downCount = 0;
+        int unknownCount = 0;
+        int currentFailureStreak = 0;
+        int longestFailureStreak = 0;
+
+        for (ApiStationStatusCheck check : checks) {
+            if (check.getStatus() == ApiStation.Status.UP) {
+                upCount++;
+                currentFailureStreak = 0;
+            } else if (check.getStatus() == ApiStation.Status.DOWN) {
+                downCount++;
+                currentFailureStreak++;
+                longestFailureStreak = Math.max(longestFailureStreak, currentFailureStreak);
+            } else {
+                unknownCount++;
+                currentFailureStreak = 0;
+            }
+        }
+
+        IntSummaryStatistics latencyStats = checks.stream()
+                .map(ApiStationStatusCheck::getLatencyMs)
+                .filter(latency -> latency != null)
+                .mapToInt(Integer::intValue)
+                .summaryStatistics();
+        Integer averageLatencyMs = latencyStats.getCount() == 0 ? null : (int) Math.round(latencyStats.getAverage());
+        Integer fastestLatencyMs = latencyStats.getCount() == 0 ? null : latencyStats.getMin();
+        Integer slowestLatencyMs = latencyStats.getCount() == 0 ? null : latencyStats.getMax();
+
+        Instant lastCheckedAt = checks.isEmpty() ? null : checks.getFirst().getCheckedAt();
+        Instant firstCheckedAt = checks.isEmpty() ? null : checks.getLast().getCheckedAt();
+        ApiStation.Status currentStatus = checks.isEmpty() ? ApiStation.Status.UNKNOWN : checks.getFirst().getStatus();
+        double uptimeRate = sampleSize == 0 ? 0 : (double) upCount / sampleSize;
+
+        return Optional.of(new ApiStationStatusSummaryResponse(
+                stationId,
+                sampleSize,
+                upCount,
+                downCount,
+                unknownCount,
+                uptimeRate,
+                averageLatencyMs,
+                fastestLatencyMs,
+                slowestLatencyMs,
+                firstCheckedAt,
+                lastCheckedAt,
+                longestFailureStreak,
+                currentStatus
+        ));
     }
 
     private int normalizeLimit(int limit) {

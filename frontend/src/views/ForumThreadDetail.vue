@@ -114,6 +114,11 @@ async function load() {
     interaction.value = await forumApi.interaction(threadId.value)
     await loadProfiles([threadData.authorId, threadData.lastReplyUserId, threadData.acceptedReplyUserId])
     await loadReplies(0)
+    if (auth.isLoggedIn() && interaction.value?.subscribed) {
+      try {
+        interaction.value = await forumApi.markThreadSubscriptionRead(threadId.value)
+      } catch { /* read marker is non-critical */ }
+    }
   } catch (e: any) {
     error.value = e?.response?.data?.message || '帖子不存在或加载失败'
   } finally {
@@ -152,6 +157,25 @@ async function toggleFavorite() {
       ? await forumApi.unfavoriteThread(thread.value.id)
       : await forumApi.favoriteThread(thread.value.id)
     thread.value.favoriteCount = interaction.value.favoriteCount
+  } catch (e: any) {
+    toast.error(e?.response?.data?.message || '操作失败')
+  } finally {
+    interactionSaving.value = false
+  }
+}
+
+async function toggleSubscription() {
+  if (!thread.value) return
+  if (!auth.isLoggedIn()) {
+    router.push({ name: 'login', query: { redirect: route.fullPath } })
+    return
+  }
+  interactionSaving.value = true
+  try {
+    interaction.value = interaction.value?.subscribed
+      ? await forumApi.unsubscribeThread(thread.value.id)
+      : await forumApi.subscribeThread(thread.value.id)
+    toast.success(interaction.value.subscribed ? '已关注帖子更新' : '已取消关注')
   } catch (e: any) {
     toast.error(e?.response?.data?.message || '操作失败')
   } finally {
@@ -304,6 +328,9 @@ onMounted(load)
               </button>
               <button class="btn btn-sm" :disabled="interactionSaving" @click="toggleFavorite">
                 {{ interaction?.favorited ? '已收藏' : '收藏' }} {{ interaction?.favoriteCount ?? thread.favoriteCount }}
+              </button>
+              <button class="btn btn-sm" :disabled="interactionSaving" @click="toggleSubscription">
+                {{ interaction?.subscribed ? '已关注' : '关注更新' }} {{ interaction?.subscriberCount ?? 0 }}
               </button>
               <button class="btn btn-sm" @click="openReport('POST', thread.id, `帖子「${thread.title}」`)">举报</button>
               <RouterLink v-if="canManageThread" class="btn btn-sm" :to="`/forum/threads/${thread.id}/edit`">编辑帖子</RouterLink>

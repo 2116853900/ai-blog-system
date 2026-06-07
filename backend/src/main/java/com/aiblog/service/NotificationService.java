@@ -4,6 +4,7 @@ import com.aiblog.dto.UserNotificationResponse;
 import com.aiblog.entity.ForumReply;
 import com.aiblog.entity.ForumThread;
 import com.aiblog.entity.UserNotification;
+import com.aiblog.repository.ForumThreadSubscriptionRepository;
 import com.aiblog.repository.UserNotificationRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -12,21 +13,27 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class NotificationService {
 
     private final UserNotificationRepository notificationRepo;
+    private final ForumThreadSubscriptionRepository subscriptionRepo;
 
-    public NotificationService(UserNotificationRepository notificationRepo) {
+    public NotificationService(UserNotificationRepository notificationRepo,
+                               ForumThreadSubscriptionRepository subscriptionRepo) {
         this.notificationRepo = notificationRepo;
+        this.subscriptionRepo = subscriptionRepo;
     }
 
     @Transactional
     public void notifyReplyCreated(ForumThread thread, ForumReply reply) {
         List<UserNotification> notifications = new ArrayList<>();
+        Set<Long> notifiedUserIds = new LinkedHashSet<>();
         Long actorId = reply.getAuthorId();
         String linkUrl = "/forum/threads/" + thread.getId();
 
@@ -39,6 +46,7 @@ public class NotificationService {
                     "帖子《" + thread.getTitle() + "》收到一条新回复",
                     linkUrl
             ));
+            notifiedUserIds.add(thread.getAuthorId());
         }
 
         Long replyToUserId = reply.getReplyToUserId();
@@ -51,6 +59,22 @@ public class NotificationService {
                     "你在《" + thread.getTitle() + "》中的回复收到新回应",
                     linkUrl
             ));
+            notifiedUserIds.add(replyToUserId);
+        }
+
+        for (Long subscriberId : subscriptionRepo.findSubscriberUserIdsByThreadId(thread.getId())) {
+            if (subscriberId == null || subscriberId.equals(actorId) || notifiedUserIds.contains(subscriberId)) {
+                continue;
+            }
+            notifications.add(build(
+                    subscriberId,
+                    actorId,
+                    UserNotification.NotificationType.THREAD_SUBSCRIPTION_REPLY,
+                    "你关注的帖子有新回复",
+                    "你关注的帖子《" + thread.getTitle() + "》收到一条新回复",
+                    linkUrl
+            ));
+            notifiedUserIds.add(subscriberId);
         }
 
         if (!notifications.isEmpty()) {

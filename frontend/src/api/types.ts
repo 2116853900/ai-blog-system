@@ -58,6 +58,22 @@ export interface ApiStationStatusCheck {
   errorMessage?: string
 }
 
+export interface ApiStationStatusSummary {
+  stationId: number
+  sampleSize: number
+  upCount: number
+  downCount: number
+  unknownCount: number
+  uptimeRate: number
+  averageLatencyMs?: number
+  fastestLatencyMs?: number
+  slowestLatencyMs?: number
+  firstCheckedAt?: string
+  lastCheckedAt?: string
+  longestFailureStreak: number
+  currentStatus: ApiStatus
+}
+
 export type RefType = 'POST' | 'SKILL' | 'MCP' | 'API'
 export type CommentStatus = 'NORMAL' | 'HIDDEN' | 'DELETED'
 
@@ -195,8 +211,25 @@ export interface ForumReply {
 export interface ForumInteraction {
   liked: boolean
   favorited: boolean
+  subscribed: boolean
   likeCount: number
   favoriteCount: number
+  subscriberCount: number
+}
+
+export interface ForumSubscriptionSummary {
+  subscribedThreadCount: number
+  receivedSubscriberCount: number
+  unreadSubscribedThreadCount: number
+}
+
+export interface ForumThreadSubscriptionItem extends ForumThread {
+  subscriberCount: number
+  unreadReplyCount: number
+  unread: boolean
+  subscribedAt: string
+  lastReadAt?: string
+  url: string
 }
 
 export type ResourceFavoriteRefType = 'POST' | 'SKILL' | 'MCP' | 'API'
@@ -248,7 +281,7 @@ export interface ResourceReviewSummary {
   myReview?: ResourceReview | null
 }
 
-export type NotificationType = 'THREAD_REPLY' | 'REPLY_REPLY'
+export type NotificationType = 'THREAD_REPLY' | 'REPLY_REPLY' | 'THREAD_SUBSCRIPTION_REPLY'
 
 export interface UserNotification {
   id: number
@@ -370,4 +403,57 @@ export interface GlobalSearchResponse {
   query: string
   totalCount: number
   groups: GlobalSearchGroup[]
+}
+
+export interface PublicStats {
+  generatedAt: string
+  content: {
+    posts: number
+    skills: number
+    mcps: number
+    apiStations: number
+    totalResources: number
+  }
+  community: {
+    threads: number
+    replies: number
+    solvedThreads: number
+    totalViews: number
+    totalLikes: number
+    totalFavorites: number
+  }
+  apiHealth: {
+    total: number
+    up: number
+    down: number
+    unknown: number
+    uptimeRate: number
+    averageLatencyMs?: number
+  }
+  popularTags: Array<{
+    tag: string
+    count: number
+    url: string
+  }>
+  recentItems: Array<{
+    type: GlobalSearchType
+    title: string
+    description?: string
+    url: string
+    category?: string
+    tags?: string
+    createdAt: string
+    metric?: string
+  }>
+  hotThreads: Array<{
+    id: number
+    title: string
+    url: string
+    tags?: string
+    viewCount: number
+    replyCount: number
+    likeCount: number
+    lastActivityAt: string
+    solved: boolean
+  }>
 }

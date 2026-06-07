@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.Collection;
 
 public interface ForumReplyRepository extends JpaRepository<ForumReply, Long>, JpaSpecificationExecutor<ForumReply> {
@@ -42,6 +43,19 @@ public interface ForumReplyRepository extends JpaRepository<ForumReply, Long>, J
 
     @Query("select coalesce(max(r.floorNumber), 0) from ForumReply r where r.threadId = :threadId")
     int findMaxFloorNumberByThreadId(@Param("threadId") Long threadId);
+
+    @Query("""
+            select count(r) from ForumReply r
+            where r.threadId = :threadId
+              and r.status = :status
+              and r.createdAt > :after
+              and r.authorId <> :userId
+            """)
+    long countUnreadRepliesAfter(
+            @Param("threadId") Long threadId,
+            @Param("status") ForumReply.ReplyStatus status,
+            @Param("after") Instant after,
+            @Param("userId") Long userId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update ForumReply r set r.reportCount = r.reportCount + 1 where r.id = :id")

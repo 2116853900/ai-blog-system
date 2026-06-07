@@ -1,6 +1,7 @@
 package com.aiblog.service;
 
 import com.aiblog.dto.ApiStationStatusCheckResponse;
+import com.aiblog.dto.ApiStationStatusSummaryResponse;
 import com.aiblog.entity.ApiStation;
 import com.aiblog.entity.ApiStationStatusCheck;
 import com.aiblog.repository.ApiStationRepository;
@@ -91,6 +92,71 @@ class ApiStationStatusHistoryServiceTest {
         when(stationRepo.existsById(STATION_ID)).thenReturn(false);
 
         Optional<List<ApiStationStatusCheckResponse>> result = service.recent(STATION_ID, 20);
+
+        assertThat(result).isEmpty();
+        verifyNoInteractions(checkRepo);
+    }
+
+    @Test
+    void summaryComputesAvailabilityLatencyAndFailureStreak() {
+        List<ApiStationStatusCheck> checks = List.of(
+                check(5L, ApiStation.Status.UP, 100, null),
+                check(4L, ApiStation.Status.DOWN, null, "timeout"),
+                check(3L, ApiStation.Status.DOWN, 200, "HTTP 503"),
+                check(2L, ApiStation.Status.UNKNOWN, null, null),
+                check(1L, ApiStation.Status.UP, 150, null)
+        );
+        when(stationRepo.existsById(STATION_ID)).thenReturn(true);
+        when(checkRepo.findByStationIdOrderByCheckedAtDesc(eq(STATION_ID), any(Pageable.class)))
+                .thenReturn(checks);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        Optional<ApiStationStatusSummaryResponse> result = service.summary(STATION_ID, 30);
+
+        assertThat(result).isPresent();
+        ApiStationStatusSummaryResponse summary = result.orElseThrow();
+        assertThat(summary.stationId()).isEqualTo(STATION_ID);
+        assertThat(summary.sampleSize()).isEqualTo(5);
+        assertThat(summary.upCount()).isEqualTo(2);
+        assertThat(summary.downCount()).isEqualTo(2);
+        assertThat(summary.unknownCount()).isEqualTo(1);
+        assertThat(summary.uptimeRate()).isEqualTo(0.4);
+        assertThat(summary.averageLatencyMs()).isEqualTo(150);
+        assertThat(summary.fastestLatencyMs()).isEqualTo(100);
+        assertThat(summary.slowestLatencyMs()).isEqualTo(200);
+        assertThat(summary.firstCheckedAt()).isEqualTo(checks.getLast().getCheckedAt());
+        assertThat(summary.lastCheckedAt()).isEqualTo(checks.getFirst().getCheckedAt());
+        assertThat(summary.longestFailureStreak()).isEqualTo(2);
+        assertThat(summary.currentStatus()).isEqualTo(ApiStation.Status.UP);
+        verify(checkRepo).findByStationIdOrderByCheckedAtDesc(eq(STATION_ID), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(30);
+    }
+
+    @Test
+    void summaryIgnoresNullLatencyForLatencyAggregates() {
+        List<ApiStationStatusCheck> checks = List.of(
+                check(2L, ApiStation.Status.DOWN, null, "timeout"),
+                check(1L, ApiStation.Status.UP, null, null)
+        );
+        when(stationRepo.existsById(STATION_ID)).thenReturn(true);
+        when(checkRepo.findByStationIdOrderByCheckedAtDesc(eq(STATION_ID), any(Pageable.class)))
+                .thenReturn(checks);
+
+        Optional<ApiStationStatusSummaryResponse> result = service.summary(STATION_ID, 0);
+
+        assertThat(result).isPresent();
+        ApiStationStatusSummaryResponse summary = result.orElseThrow();
+        assertThat(summary.averageLatencyMs()).isNull();
+        assertThat(summary.fastestLatencyMs()).isNull();
+        assertThat(summary.slowestLatencyMs()).isNull();
+        assertThat(summary.sampleSize()).isEqualTo(2);
+    }
+
+    @Test
+    void summaryReturnsEmptyWhenStationDoesNotExist() {
+        when(stationRepo.existsById(STATION_ID)).thenReturn(false);
+
+        Optional<ApiStationStatusSummaryResponse> result = service.summary(STATION_ID, 20);
 
         assertThat(result).isEmpty();
         verifyNoInteractions(checkRepo);

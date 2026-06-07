@@ -1,13 +1,15 @@
 import http from './http'
 import type {
   Post, Skill, Mcp, ApiStation, ApiStatus, ApiStationStatusCheck, Comment, RefType,
+  ApiStationStatusSummary,
   SubmissionType, Submission, AuthResponse, UserProfile,
   ForumCategory, ForumTagSummary, ForumThread, ForumReply, Page, AdminOperationLog,
   ThreadStatus, ReplyStatus, AdminForumUser, UserStatus, ForumInteraction,
+  ForumSubscriptionSummary, ForumThreadSubscriptionItem,
   ResourceFavoriteInteraction, ResourceFavoriteItem, ResourceFavoriteRefType, UserNotification,
   ResourceReview, ResourceReviewSummary, RelatedResource,
   ContentReport, ContentReportTarget, ReportReasonType, ReportStatus, ReportTargetType, CommentStatus,
-  GlobalSearchResponse, AdminDashboard, ResourceTagSummary
+  GlobalSearchResponse, AdminDashboard, ResourceTagSummary, PublicStats
 } from './types'
 
 // ---------- 公开接口 ----------
@@ -19,6 +21,7 @@ export const publicApi = {
     http.get<ResourceTagSummary[]>('/posts/tags/popular', { params }).then(r => r.data),
   search: (params?: { q?: string; limit?: number }) =>
     http.get<GlobalSearchResponse>('/search', { params }).then(r => r.data),
+  stats: () => http.get<PublicStats>('/stats').then(r => r.data),
 
   skills: (params?: { q?: string; tag?: string; category?: string }) =>
     http.get<Skill[]>('/skills', { params }).then(r => r.data),
@@ -39,6 +42,8 @@ export const publicApi = {
     http.get<ResourceTagSummary[]>('/api-stations/tags/popular', { params }).then(r => r.data),
   apiStationChecks: (id: number, params?: { limit?: number }) =>
     http.get<ApiStationStatusCheck[]>(`/api-stations/${id}/checks`, { params }).then(r => r.data),
+  apiStationCheckSummary: (id: number, params?: { limit?: number }) =>
+    http.get<ApiStationStatusSummary>(`/api-stations/${id}/checks/summary`, { params }).then(r => r.data),
 
   comments: (type: RefType, refId: number) =>
     http.get<Comment[]>('/comments', { params: { type, refId } }).then(r => r.data),
@@ -80,6 +85,10 @@ export const accountApi = {
     http.get<Page<ForumReply>>('/account/replies', { params }).then(r => r.data),
   favorites: (params?: { page?: number; size?: number }) =>
     http.get<Page<ForumThread>>('/account/favorites', { params }).then(r => r.data),
+  subscriptions: (params?: { unreadOnly?: boolean; page?: number; size?: number }) =>
+    http.get<Page<ForumThreadSubscriptionItem>>('/account/subscriptions', { params }).then(r => r.data),
+  subscriptionSummary: () =>
+    http.get<ForumSubscriptionSummary>('/account/subscription-summary').then(r => r.data),
   resourceFavorites: (params?: { page?: number; size?: number }) =>
     http.get<Page<ResourceFavoriteItem>>('/account/resource-favorites', { params }).then(r => r.data),
   favoriteResource: (refType: ResourceFavoriteRefType, refId: number) =>
@@ -139,6 +148,12 @@ export const forumApi = {
     http.post<ForumInteraction>(`/forum/threads/${threadId}/favorite`).then(r => r.data),
   unfavoriteThread: (threadId: number) =>
     http.delete<ForumInteraction>(`/forum/threads/${threadId}/favorite`).then(r => r.data),
+  subscribeThread: (threadId: number) =>
+    http.post<ForumInteraction>(`/forum/threads/${threadId}/subscription`).then(r => r.data),
+  unsubscribeThread: (threadId: number) =>
+    http.delete<ForumInteraction>(`/forum/threads/${threadId}/subscription`).then(r => r.data),
+  markThreadSubscriptionRead: (threadId: number) =>
+    http.post<ForumInteraction>(`/forum/threads/${threadId}/subscription/read`).then(r => r.data),
   report: (body: { targetType: ReportTargetType; targetId: number; reasonType: ReportReasonType; reasonText?: string }) =>
     http.post<ContentReport>('/reports', body).then(r => r.data)
 }

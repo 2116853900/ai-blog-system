@@ -4,6 +4,7 @@ import com.aiblog.dto.UserNotificationResponse;
 import com.aiblog.entity.ForumReply;
 import com.aiblog.entity.ForumThread;
 import com.aiblog.entity.UserNotification;
+import com.aiblog.repository.ForumThreadSubscriptionRepository;
 import com.aiblog.repository.UserNotificationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,11 +38,15 @@ class NotificationServiceTest {
     @Mock
     private UserNotificationRepository notificationRepo;
 
+    @Mock
+    private ForumThreadSubscriptionRepository subscriptionRepo;
+
     private NotificationService service;
 
     @BeforeEach
     void setUp() {
-        service = new NotificationService(notificationRepo);
+        service = new NotificationService(notificationRepo, subscriptionRepo);
+        lenient().when(subscriptionRepo.findSubscriberUserIdsByThreadId(THREAD_ID)).thenReturn(List.of());
     }
 
     @Test
@@ -70,6 +76,32 @@ class NotificationServiceTest {
         service.notifyReplyCreated(thread, reply);
 
         verify(notificationRepo, never()).saveAll(any());
+    }
+
+    @Test
+    void notifyReplyCreatedNotifiesSubscribersWithoutDuplicates() {
+        long subscriberId = 50L;
+        ForumThread thread = thread(THREAD_AUTHOR_ID);
+        ForumReply reply = reply(REPLY_AUTHOR_ID, REPLY_TO_AUTHOR_ID);
+        when(subscriptionRepo.findSubscriberUserIdsByThreadId(THREAD_ID))
+                .thenReturn(List.of(THREAD_AUTHOR_ID, REPLY_AUTHOR_ID, REPLY_TO_AUTHOR_ID, subscriberId, subscriberId));
+
+        service.notifyReplyCreated(thread, reply);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Iterable<UserNotification>> captor = ArgumentCaptor.forClass(Iterable.class);
+        verify(notificationRepo).saveAll(captor.capture());
+        List<UserNotification> saved = toList(captor.getValue());
+        assertThat(saved)
+                .extracting(UserNotification::getUserId)
+                .containsExactly(THREAD_AUTHOR_ID, REPLY_TO_AUTHOR_ID, subscriberId);
+        assertThat(saved)
+                .extracting(UserNotification::getType)
+                .containsExactly(
+                        UserNotification.NotificationType.THREAD_REPLY,
+                        UserNotification.NotificationType.REPLY_REPLY,
+                        UserNotification.NotificationType.THREAD_SUBSCRIPTION_REPLY
+                );
     }
 
     @Test

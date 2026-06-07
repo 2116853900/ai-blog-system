@@ -63,7 +63,7 @@ class ForumInteractionSecurityConfigTest {
         when(jwtUtil.extractUsername(token)).thenReturn("alice");
         when(jwtUtil.extractRole(token)).thenReturn("ROLE_USER");
         when(userService.findByUsername("alice")).thenReturn(Optional.of(user));
-        when(interactionService.like(1L, 7L)).thenReturn(new ForumInteractionResponse(true, false, 3, 0));
+        when(interactionService.like(1L, 7L)).thenReturn(new ForumInteractionResponse(true, false, false, 3, 0, 0));
 
         mockMvc.perform(post("/api/forum/threads/1/like")
                         .header("Authorization", "Bearer " + token))

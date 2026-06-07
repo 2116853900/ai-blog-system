@@ -78,6 +78,42 @@ public class ForumInteractionController {
         }
     }
 
+    @PostMapping("/subscription")
+    public ResponseEntity<?> subscribe(@PathVariable Long threadId, Authentication auth) {
+        Long userId = requireActiveUser(auth);
+        if (userId == null) return unauthorized();
+        try {
+            ForumInteractionResponse response = interactionService.subscribe(threadId, userId);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/subscription")
+    public ResponseEntity<?> unsubscribe(@PathVariable Long threadId, Authentication auth) {
+        Long userId = requireActiveUser(auth);
+        if (userId == null) return unauthorized();
+        try {
+            ForumInteractionResponse response = interactionService.unsubscribe(threadId, userId);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/subscription/read")
+    public ResponseEntity<?> markSubscriptionRead(@PathVariable Long threadId, Authentication auth) {
+        Long userId = requireActiveUser(auth);
+        if (userId == null) return unauthorized();
+        try {
+            ForumInteractionResponse response = interactionService.markSubscriptionRead(threadId, userId);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
     private Long resolveUserId(Authentication auth) {
         if (auth == null) return null;
         return userService.findByUsername(auth.getName()).map(u -> u.getId()).orElse(null);
