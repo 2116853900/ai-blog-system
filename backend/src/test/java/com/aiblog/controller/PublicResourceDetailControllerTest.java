@@ -13,6 +13,8 @@ import com.aiblog.repository.SkillRepository;
 import com.aiblog.service.ApiStationStatusHistoryService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 
 import java.time.Instant;
@@ -20,7 +22,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class PublicResourceDetailControllerTest {
@@ -102,6 +107,24 @@ class PublicResourceDetailControllerTest {
         var response = controller.detail(404L);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void apiStationListForwardsStatusFilter() {
+        ApiStationRepository repo = mock(ApiStationRepository.class);
+        ApiStation station = new ApiStation();
+        station.setId(3L);
+        station.setName("Fast Relay");
+        station.setBaseUrl("https://relay.example.com");
+        station.setStatus(ApiStation.Status.UP);
+        Sort expectedSort = Sort.by(Sort.Direction.ASC, "name");
+        when(repo.findAll(any(Specification.class), eq(expectedSort))).thenReturn(List.of(station));
+        ApiStationController controller = new ApiStationController(repo, mock(ApiStationStatusHistoryService.class), cacheService());
+
+        List<ApiStation> response = controller.list(null, null, ApiStation.Status.UP);
+
+        assertThat(response).containsExactly(station);
+        verify(repo).findAll(any(Specification.class), eq(expectedSort));
     }
 
     @Test

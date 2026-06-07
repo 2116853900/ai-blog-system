@@ -1,6 +1,6 @@
 import http from './http'
 import type {
-  Post, Skill, Mcp, ApiStation, ApiStationStatusCheck, Comment, RefType,
+  Post, Skill, Mcp, ApiStation, ApiStatus, ApiStationStatusCheck, Comment, RefType,
   SubmissionType, Submission, AuthResponse, UserProfile,
   ForumCategory, ForumTagSummary, ForumThread, ForumReply, Page, AdminOperationLog,
   ThreadStatus, ReplyStatus, AdminForumUser, UserStatus, ForumInteraction,
@@ -25,7 +25,7 @@ export const publicApi = {
     http.get<Mcp[]>('/mcps', { params }).then(r => r.data),
   mcp: (id: number) => http.get<Mcp>(`/mcps/${id}`).then(r => r.data),
 
-  apiStations: (params?: { q?: string; tag?: string }) =>
+  apiStations: (params?: { q?: string; tag?: string; status?: ApiStatus }) =>
     http.get<ApiStation[]>('/api-stations', { params }).then(r => r.data),
   apiStation: (id: number) => http.get<ApiStation>(`/api-stations/${id}`).then(r => r.data),
   apiStationChecks: (id: number, params?: { limit?: number }) =>

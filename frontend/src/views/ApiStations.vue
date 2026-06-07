@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { publicApi } from '../api'
-import type { ApiStation } from '../api/types'
+import type { ApiStation, ApiStatus } from '../api/types'
 import SearchBar from '../components/SearchBar.vue'
 import TagList from '../components/TagList.vue'
 import StatusBadge from '../components/StatusBadge.vue'
@@ -12,13 +12,43 @@ import CommentSection from '../components/CommentSection.vue'
 import CopyButton from '../components/CopyButton.vue'
 import { useListView } from '../composables/useListView'
 
+type StatusFilter = 'ALL' | ApiStatus
+
+const statusOptions: Array<{ value: StatusFilter; label: string; tone: string }> = [
+  { value: 'ALL', label: '全部状态', tone: 'all' },
+  { value: 'UP', label: '在线', tone: 'up' },
+  { value: 'DOWN', label: '离线', tone: 'down' },
+  { value: 'UNKNOWN', label: '未检测', tone: 'unknown' }
+]
+const statusFilter = ref<StatusFilter>('ALL')
+
+function statusParam() {
+  return statusFilter.value === 'ALL' ? undefined : statusFilter.value
+}
+
 const {
   items, loading, q, activeTag, isEmpty, hasFilter, load, toggleTag, reset
-} = useListView<ApiStation>(publicApi.apiStations)
+} = useListView<ApiStation>((params) => publicApi.apiStations({
+  ...params,
+  status: statusParam()
+}))
 
 const selected = ref<ApiStation | null>(null)
+const hasAnyFilter = computed(() => hasFilter.value || statusFilter.value !== 'ALL')
+
 function open(a: ApiStation) { selected.value = a }
 function close() { selected.value = null }
+
+function selectStatus(value: StatusFilter) {
+  if (statusFilter.value === value) return
+  statusFilter.value = value
+  load()
+}
+
+function resetFilters() {
+  statusFilter.value = 'ALL'
+  reset()
+}
 
 function models(s?: string): string[] {
   if (!s) return []
@@ -39,10 +69,22 @@ function fmtTime(d?: string): string {
 
     <div class="toolbar">
       <SearchBar class="grow" v-model="q" placeholder="搜索站点名称、模型、标签…" @search="load" />
-      <button v-if="hasFilter" class="btn btn-sm" @click="reset">清除筛选 ✕</button>
+      <div class="status-filter" aria-label="API 状态筛选">
+        <button
+          v-for="option in statusOptions"
+          :key="option.value"
+          type="button"
+          :class="['status-option', `tone-${option.tone}`, { active: statusFilter === option.value }]"
+          @click="selectStatus(option.value)"
+        >
+          <span aria-hidden="true"></span>
+          {{ option.label }}
+        </button>
+      </div>
+      <button v-if="hasAnyFilter" class="btn btn-sm" @click="resetFilters">清除筛选 ✕</button>
     </div>
 
-    <StateBlock :loading="loading" :empty="isEmpty" empty-text="暂无 API 站点。" class="block-area">
+    <StateBlock :loading="loading" :empty="isEmpty" :empty-text="hasAnyFilter ? '没有匹配的 API 站点。' : '暂无 API 站点。'" class="block-area">
       <template #skeleton>
         <div class="grid">
           <div v-for="i in 4" :key="i" class="card item">
@@ -116,6 +158,44 @@ function fmtTime(d?: string): string {
 .page { padding: 30px 0 60px; }
 .page-head { margin-bottom: 16px; }
 .block-area { margin-top: 20px; }
+.status-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-inset);
+  overflow-x: auto;
+}
+.status-option {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+.status-option span {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+}
+.status-option:hover,
+.status-option.active {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.status-option.tone-up.active { color: var(--accent); }
+.status-option.tone-down.active { color: var(--danger); }
+.status-option.tone-unknown.active { color: var(--text-soft); }
 .item {
   padding: 20px; display: flex; flex-direction: column; gap: 10px;
   text-align: left; width: 100%; cursor: pointer; font: inherit; color: inherit;

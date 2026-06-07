@@ -31,13 +31,18 @@ public class ApiStationController {
 
     @GetMapping
     public List<ApiStation> list(@RequestParam(required = false) String q,
-                                 @RequestParam(required = false) String tag) {
+                                 @RequestParam(required = false) String tag,
+                                 @RequestParam(required = false) ApiStation.Status status) {
         return cacheService.publicContent(
-                cacheService.apiStationsListKey(q, tag),
+                cacheService.apiStationsListKey(q, tag, status),
                 new TypeReference<List<ApiStation>>() {},
-                () -> repo.findAll(
-                        SearchSpecs.build(q, tag, null, List.of("name", "description", "supportedModels", "tags")),
-                        Sort.by(Sort.Direction.ASC, "name")));
+                () -> {
+                    var spec = SearchSpecs.<ApiStation>build(q, tag, null, List.of("name", "description", "supportedModels", "tags"));
+                    if (status != null) {
+                        spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), status));
+                    }
+                    return repo.findAll(spec, Sort.by(Sort.Direction.ASC, "name"));
+                });
     }
 
     @GetMapping("/{id}")

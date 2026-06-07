@@ -1,5 +1,6 @@
 package com.aiblog.cache;
 
+import com.aiblog.entity.ApiStation;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.stereotype.Service;
 
@@ -64,8 +65,8 @@ public class PublicContentCacheService {
         return MCPS_PREFIX + "detail:" + id;
     }
 
-    public String apiStationsListKey(String q, String tag) {
-        return API_STATIONS_PREFIX + "list:" + params(q, tag, null);
+    public String apiStationsListKey(String q, String tag, ApiStation.Status status) {
+        return API_STATIONS_PREFIX + "list:" + params(q, tag, status);
     }
 
     public String apiStationDetailKey(Long id) {
@@ -112,7 +113,7 @@ public class PublicContentCacheService {
         return SEARCH_PREFIX + normalize(key);
     }
 
-    private String params(String first, String second, String third) {
+    private String params(Object first, Object second, Object third) {
         return normalize(first) + ":" + normalize(second) + ":" + normalize(third);
     }
 
