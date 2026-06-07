@@ -5,7 +5,7 @@ import type {
   ForumCategory, ForumTagSummary, ForumThread, ForumReply, Page, AdminOperationLog,
   ThreadStatus, ReplyStatus, AdminForumUser, UserStatus, ForumInteraction,
   ResourceFavoriteInteraction, ResourceFavoriteItem, ResourceFavoriteRefType, UserNotification,
-  ResourceReview, ResourceReviewSummary,
+  ResourceReview, ResourceReviewSummary, RelatedResource,
   ContentReport, ContentReportTarget, ReportReasonType, ReportStatus, ReportTargetType, CommentStatus,
   GlobalSearchResponse, AdminDashboard, ResourceTagSummary
 } from './types'
@@ -49,6 +49,8 @@ export const publicApi = {
     http.get<ResourceReviewSummary>(`/resource-reviews/${refType}/${refId}/summary`).then(r => r.data),
   resourceReviews: (refType: ResourceFavoriteRefType, refId: number, params?: { page?: number; size?: number }) =>
     http.get<Page<ResourceReview>>(`/resource-reviews/${refType}/${refId}`, { params }).then(r => r.data),
+  relatedResources: (refType: ResourceFavoriteRefType, refId: number, params?: { limit?: number }) =>
+    http.get<RelatedResource[]>('/related-resources', { params: { refType, refId, ...params } }).then(r => r.data),
 
   addComment: (body: { refType: RefType; refId: number; author: string; content: string }) =>
     http.post('/comments', body).then(r => r.data),

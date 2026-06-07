@@ -201,6 +201,18 @@ export interface ForumInteraction {
 
 export type ResourceFavoriteRefType = 'POST' | 'SKILL' | 'MCP' | 'API'
 
+export interface RelatedResource {
+  type: ResourceFavoriteRefType
+  id: number
+  title: string
+  description?: string
+  url: string
+  category?: string
+  tags?: string
+  score: number
+  reason: string
+}
+
 export interface ResourceFavoriteInteraction {
   favorited: boolean
   favoriteCount: number

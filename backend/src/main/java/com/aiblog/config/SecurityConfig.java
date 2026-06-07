@@ -32,6 +32,7 @@ public class SecurityConfig {
                 // 公开接口
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/search", "/api/search/**",
+                        "/api/related-resources", "/api/related-resources/**",
                         "/api/posts/**", "/api/skills/**",
                         "/api/mcps/**", "/api/api-stations/**", "/api/comments/**",
                         "/api/forum/categories/**", "/api/forum/threads/**",
