@@ -74,8 +74,11 @@ onMounted(loadPopularTags)
 <template>
   <div class="container page">
     <header class="page-head">
-      <h1 class="section-title prompt">公益 API 中转站</h1>
-      <p class="muted">社区维护的 API 中转，实时状态监测。请遵守各站点规则，理性使用。</p>
+      <div>
+        <h1 class="section-title prompt">公益 API 中转站</h1>
+        <p class="muted">社区维护的 API 中转，实时状态监测。请遵守各站点规则，理性使用。</p>
+      </div>
+      <RouterLink to="/api-stations/health" class="btn btn-sm">状态大盘</RouterLink>
     </header>
 
     <div class="toolbar">
@@ -181,7 +184,7 @@ onMounted(loadPopularTags)
 
 <style scoped>
 .page { padding: 30px 0 60px; }
-.page-head { margin-bottom: 16px; }
+.page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
 .block-area { margin-top: 20px; }
 .popular-tags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
 .popular-label { color: var(--text-dim); font-size: 12px; }
@@ -248,4 +251,7 @@ onMounted(loadPopularTags)
 .d-field { margin-bottom: 16px; }
 .d-label { display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; }
 .d-sep { border: none; border-top: 1px dashed var(--border-strong); margin: 24px 0; }
+@media (max-width: 720px) {
+  .page-head { display: grid; }
+}
 </style>

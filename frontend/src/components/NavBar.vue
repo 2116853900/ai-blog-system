@@ -20,7 +20,8 @@ const resourceLinks = [
   { to: '/skills', label: 'AI Skill' },
   { to: '/mcps', label: 'MCP 服务' },
   { to: '/tutorials', label: '教程文档' },
-  { to: '/api-stations', label: 'API 中转站' }
+  { to: '/api-stations', label: 'API 中转站' },
+  { to: '/api-stations/health', label: '状态大盘' }
 ]
 const resourceActive = computed(() =>
   resourceLinks.some(l => route.path === l.to || route.path.startsWith(`${l.to}/`))

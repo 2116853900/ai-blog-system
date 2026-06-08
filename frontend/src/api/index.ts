@@ -2,6 +2,8 @@ import http from './http'
 import type {
   Post, Skill, Mcp, ApiStation, ApiStatus, ApiStationStatusCheck, Comment, RefType,
   ApiStationStatusSummary,
+  ApiStationHealthDashboard,
+  ApiStationHealthTrendResponse,
   SubmissionType, Submission, AuthResponse, UserProfile,
   ForumCategory, ForumTagSummary, ForumThread, ForumReply, Page, AdminOperationLog,
   ThreadStatus, ReplyStatus, AdminForumUser, UserStatus, ForumInteraction,
@@ -44,6 +46,10 @@ export const publicApi = {
     http.get<ApiStationStatusCheck[]>(`/api-stations/${id}/checks`, { params }).then(r => r.data),
   apiStationCheckSummary: (id: number, params?: { limit?: number }) =>
     http.get<ApiStationStatusSummary>(`/api-stations/${id}/checks/summary`, { params }).then(r => r.data),
+  apiStationHealthDashboard: (params?: { sampleLimit?: number; failureLimit?: number }) =>
+    http.get<ApiStationHealthDashboard>('/api-stations/health-dashboard', { params }).then(r => r.data),
+  apiStationHealthTrends: (params?: { days?: number; incidentLimit?: number }) =>
+    http.get<ApiStationHealthTrendResponse>('/api-stations/health-trends', { params }).then(r => r.data),
 
   comments: (type: RefType, refId: number) =>
     http.get<Comment[]>('/comments', { params: { type, refId } }).then(r => r.data),

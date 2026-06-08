@@ -42,6 +42,8 @@
 | GET  | `/api/api-stations?q=&tag=` `/api/api-stations/{id}` | 公益 API 站点列表 / 详情 |
 | GET  | `/api/api-stations/{id}/checks?limit=` | 公益 API 站点最近检测历史 |
 | GET  | `/api/api-stations/{id}/checks/summary?limit=` | 公益 API 站点最近检测可用率、延迟与故障摘要 |
+| GET  | `/api/api-stations/health-dashboard?sampleLimit=&failureLimit=` | 公益 API 站点健康大盘：整体可用率、站点健康排行与最近故障 |
+| GET  | `/api/api-stations/health-trends?days=&incidentLimit=` | 公益 API 站点趋势：按天聚合可用率、延迟与故障事件流 |
 | GET  | `/api/comments?type=&refId=` | 某内容下已审核评论 |
 | POST | `/api/comments` | 提交评论（待审核）|
 | POST | `/api/submissions` | 投稿（待审核）|
@@ -72,7 +74,7 @@ npm run dev
 
 前端运行在 `http://localhost:5173`，已通过 Vite 代理把 `/api` 转发到后端 `:8080`。
 
-- 公开站点：`/`、`/skills`、`/mcps`、`/tutorials`、`/api-stations`、`/forum`、`/users/:id`、`/submit`、`/login`、`/account`
+- 公开站点：`/`、`/skills`、`/mcps`、`/tutorials`、`/api-stations`、`/api-stations/health`、`/forum`、`/users/:id`、`/submit`、`/login`、`/account`
 - 后台：`/admin/login` 登录后进入 `/admin` 总览，可继续管理教程、Skill、MCP、API 站点、评论、投稿、用户和举报
 
 ## 端到端验证

@@ -1,6 +1,8 @@
 package com.aiblog.controller;
 
 import com.aiblog.cache.PublicContentCacheService;
+import com.aiblog.dto.ApiStationHealthDashboardResponse;
+import com.aiblog.dto.ApiStationHealthTrendResponse;
 import com.aiblog.dto.ApiStationStatusCheckResponse;
 import com.aiblog.dto.ApiStationStatusSummaryResponse;
 import com.aiblog.dto.ResourceTagSummaryResponse;
@@ -57,6 +59,20 @@ public class ApiStationController {
                 cacheService.apiStationsPopularTagsKey(limit),
                 new TypeReference<List<ResourceTagSummaryResponse>>() {},
                 () -> tagService.apiStationPopularTags(limit));
+    }
+
+    @GetMapping("/health-dashboard")
+    public ApiStationHealthDashboardResponse healthDashboard(
+            @RequestParam(defaultValue = "30") int sampleLimit,
+            @RequestParam(defaultValue = "10") int failureLimit) {
+        return historyService.healthDashboard(sampleLimit, failureLimit);
+    }
+
+    @GetMapping("/health-trends")
+    public ApiStationHealthTrendResponse healthTrends(
+            @RequestParam(defaultValue = "7") int days,
+            @RequestParam(defaultValue = "10") int incidentLimit) {
+        return historyService.healthTrends(days, incidentLimit);
     }
 
     @GetMapping("/{id}")

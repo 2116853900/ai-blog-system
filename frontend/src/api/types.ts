@@ -74,6 +74,75 @@ export interface ApiStationStatusSummary {
   currentStatus: ApiStatus
 }
 
+export type ApiStationHealthLevel = 'healthy' | 'degraded' | 'down' | 'unknown'
+
+export interface ApiStationHealth {
+  id: number
+  name: string
+  baseUrl: string
+  status: ApiStatus
+  latencyMs?: number
+  lastCheckedAt?: string
+  sampleSize: number
+  upCount: number
+  downCount: number
+  unknownCount: number
+  uptimeRate: number
+  averageLatencyMs?: number
+  longestFailureStreak: number
+  healthLevel: ApiStationHealthLevel
+}
+
+export interface ApiStationRecentFailure {
+  stationId: number
+  stationName: string
+  status: ApiStatus
+  checkedAt: string
+  errorMessage?: string
+}
+
+export interface ApiStationHealthDashboard {
+  generatedAt: string
+  stationCount: number
+  upCount: number
+  downCount: number
+  unknownCount: number
+  uptimeRate: number
+  averageLatencyMs?: number
+  stations: ApiStationHealth[]
+  recentFailures: ApiStationRecentFailure[]
+}
+
+export interface ApiStationHealthTrendBucket {
+  date: string
+  sampleSize: number
+  upCount: number
+  downCount: number
+  unknownCount: number
+  uptimeRate: number
+  averageLatencyMs?: number
+}
+
+export interface ApiStationIncident {
+  stationId: number
+  stationName: string
+  startedAt: string
+  endedAt?: string
+  durationMinutes: number
+  failureCount: number
+  latestErrorMessage?: string
+  resolved: boolean
+}
+
+export interface ApiStationHealthTrendResponse {
+  generatedAt: string
+  days: number
+  startAt: string
+  endAt: string
+  buckets: ApiStationHealthTrendBucket[]
+  incidents: ApiStationIncident[]
+}
+
 export type RefType = 'POST' | 'SKILL' | 'MCP' | 'API'
 export type CommentStatus = 'NORMAL' | 'HIDDEN' | 'DELETED'
 

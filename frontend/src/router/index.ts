@@ -14,6 +14,7 @@ const router = createRouter({
     { path: '/tutorials', name: 'tutorials', component: () => import('../views/Tutorials.vue') },
     { path: '/tutorials/:slug', name: 'tutorial-detail', component: () => import('../views/TutorialDetail.vue') },
     { path: '/api-stations', name: 'api-stations', component: () => import('../views/ApiStations.vue') },
+    { path: '/api-stations/health', name: 'api-station-health', component: () => import('../views/ApiStationHealth.vue') },
     { path: '/api-stations/:id', name: 'api-station-detail', component: () => import('../views/ApiStationDetail.vue') },
     { path: '/forum', name: 'forum', component: () => import('../views/Forum.vue') },
     { path: '/forum/new', name: 'forum-new', component: () => import('../views/ForumNew.vue'), meta: { requiresAuth: true } },
