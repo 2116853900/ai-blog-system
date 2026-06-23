@@ -1,5 +1,6 @@
 package com.aiblog.controller;
 
+import com.aiblog.dto.ForumTagSummaryResponse;
 import com.aiblog.dto.ThreadRequest;
 import com.aiblog.entity.ForumThread;
 import com.aiblog.service.ForumThreadService;
@@ -32,14 +33,22 @@ public class ForumThreadController {
     public Page<ForumThread> list(
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String q,
+            @RequestParam(required = false) String tag,
+            @RequestParam(required = false) Boolean unanswered,
+            @RequestParam(required = false) Boolean solved,
+            @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        var pageable = PageRequest.of(page, size,
-                Sort.by(Sort.Direction.DESC, "lastReplyAt").and(Sort.by(Sort.Direction.DESC, "createdAt")));
-        if (categoryId != null || (q != null && !q.isBlank())) {
-            return threadService.search(categoryId, q, pageable);
+        var pageable = PageRequest.of(page, size, resolveThreadSort(sort));
+        if (categoryId != null || hasText(q) || hasText(tag) || Boolean.TRUE.equals(unanswered) || solved != null) {
+            return threadService.search(categoryId, q, tag, unanswered, solved, pageable);
         }
         return threadService.listAll(pageable);
+    }
+
+    @GetMapping("/tags/popular")
+    public List<ForumTagSummaryResponse> popularTags(@RequestParam(defaultValue = "20") int limit) {
+        return threadService.popularTags(limit);
     }
 
     /** 帖子详情 */
@@ -66,9 +75,6 @@ public class ForumThreadController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("message", "请先登录"));
         }
-        if (!userService.isActiveForumUser(userId)) {
-            return ResponseEntity.status(403).body(Map.of("message", "账号已被封禁，暂不能发帖"));
-        }
         ForumThread thread = threadService.create(req, userId);
         return ResponseEntity.ok(thread);
     }
@@ -81,9 +87,6 @@ public class ForumThreadController {
         if (userId == null && !canModerate) {
             return ResponseEntity.status(401).body(Map.of("message", "请先登录"));
         }
-        if (userId != null && !userService.isActiveForumUser(userId)) {
-            return ResponseEntity.status(403).body(Map.of("message", "账号已被封禁，暂不能编辑帖子"));
-        }
         return threadService.update(id, req, userId, canModerate)
                 .map(t -> ResponseEntity.ok((Object) t))
                 .orElse(ResponseEntity.status(403).body(Map.of("message", "无权编辑此帖子")));
@@ -94,13 +97,61 @@ public class ForumThreadController {
     public ResponseEntity<?> delete(@PathVariable Long id, Authentication auth) {
         Long userId = resolveUserId(auth);
         boolean isAdmin = hasModerationRole(auth);
-        if (userId != null && !userService.isActiveForumUser(userId)) {
-            return ResponseEntity.status(403).body(Map.of("message", "账号已被封禁，暂不能删除帖子"));
-        }
         if (threadService.delete(id, userId, isAdmin)) {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.status(403).body(Map.of("message", "无权删除此帖子"));
+    }
+
+    /** 采纳回复为解决方案 */
+    @PostMapping("/{id}/solution")
+    public ResponseEntity<?> acceptReply(
+            @PathVariable Long id,
+            @RequestBody Map<String, Long> body,
+            Authentication auth) {
+        Long userId = resolveUserId(auth);
+        boolean canModerate = hasModerationRole(auth);
+        if (userId == null && !canModerate) {
+            return ResponseEntity.status(401).body(Map.of("message", "请先登录"));
+        }
+        Long replyId = body.get("replyId");
+        if (replyId == null) {
+            return ResponseEntity.badRequest().body(Map.of("message", "replyId 不能为空"));
+        }
+        return threadService.acceptReply(id, replyId, userId, canModerate)
+                .map(t -> ResponseEntity.ok((Object) t))
+                .orElse(ResponseEntity.status(403).body(Map.of("message", "无权采纳此回复")));
+    }
+
+    /** 取消已采纳回复 */
+    @DeleteMapping("/{id}/solution")
+    public ResponseEntity<?> clearAcceptedReply(@PathVariable Long id, Authentication auth) {
+        Long userId = resolveUserId(auth);
+        boolean canModerate = hasModerationRole(auth);
+        if (userId == null && !canModerate) {
+            return ResponseEntity.status(401).body(Map.of("message", "请先登录"));
+        }
+        return threadService.clearAcceptedReply(id, userId, canModerate)
+                .map(t -> ResponseEntity.ok((Object) t))
+                .orElse(ResponseEntity.status(403).body(Map.of("message", "无权取消采纳")));
+    }
+
+    private Sort resolveThreadSort(String sort) {
+        if ("newest".equalsIgnoreCase(sort)) {
+            return Sort.by(Sort.Direction.DESC, "createdAt");
+        }
+        if ("popular".equalsIgnoreCase(sort)) {
+            return Sort.by(Sort.Direction.DESC, "replyCount")
+                    .and(Sort.by(Sort.Direction.DESC, "viewCount"))
+                    .and(Sort.by(Sort.Direction.DESC, "likeCount"))
+                    .and(Sort.by(Sort.Direction.DESC, "createdAt"));
+        }
+        return Sort.by(Sort.Direction.DESC, "lastReplyAt")
+                .and(Sort.by(Sort.Direction.DESC, "createdAt"));
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private Long resolveUserId(Authentication auth) {

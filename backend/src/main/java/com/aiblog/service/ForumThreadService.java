@@ -1,11 +1,14 @@
 package com.aiblog.service;
 
+import com.aiblog.dto.ForumTagSummaryResponse;
 import com.aiblog.dto.ThreadRequest;
 import com.aiblog.entity.AdminOperationLog;
+import com.aiblog.entity.ForumReply;
 import com.aiblog.entity.ForumThread;
 import com.aiblog.entity.ForumUser;
 import com.aiblog.repository.AdminOperationLogRepository;
 import com.aiblog.repository.ForumCategoryRepository;
+import com.aiblog.repository.ForumReplyRepository;
 import com.aiblog.repository.ForumThreadRepository;
 import com.aiblog.repository.ForumUserRepository;
 import org.springframework.data.domain.Page;
@@ -17,13 +20,18 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.criteria.Predicate;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
 public class ForumThreadService {
 
     private static final String TARGET_TYPE = "FORUM_THREAD";
+    private static final char LIKE_ESCAPE_CHAR = '\\';
     private static final List<ForumThread.ThreadStatus> VISIBLE_STATUSES = List.of(
             ForumThread.ThreadStatus.NORMAL,
             ForumThread.ThreadStatus.PINNED,
@@ -32,18 +40,24 @@ public class ForumThreadService {
     );
 
     private final ForumThreadRepository threadRepo;
+    private final ForumReplyRepository replyRepo;
     private final ForumCategoryRepository categoryRepo;
     private final ForumUserRepository userRepo;
     private final AdminOperationLogRepository operationLogRepo;
+    private final ForumViewCountBuffer viewCountBuffer;
 
     public ForumThreadService(ForumThreadRepository threadRepo,
+                              ForumReplyRepository replyRepo,
                               ForumCategoryRepository categoryRepo,
                               ForumUserRepository userRepo,
-                              AdminOperationLogRepository operationLogRepo) {
+                              AdminOperationLogRepository operationLogRepo,
+                              ForumViewCountBuffer viewCountBuffer) {
         this.threadRepo = threadRepo;
+        this.replyRepo = replyRepo;
         this.categoryRepo = categoryRepo;
         this.userRepo = userRepo;
         this.operationLogRepo = operationLogRepo;
+        this.viewCountBuffer = viewCountBuffer;
     }
 
     public Page<ForumThread> listByCategory(Long categoryId, Pageable pageable) {
@@ -51,12 +65,84 @@ public class ForumThreadService {
     }
 
     public Page<ForumThread> search(Long categoryId, String q, Pageable pageable) {
-        String keyword = q == null ? "" : q.trim();
-        return threadRepo.searchVisible(categoryId, keyword, VISIBLE_STATUSES, pageable);
+        return search(categoryId, q, null, pageable);
+    }
+
+    public Page<ForumThread> search(Long categoryId, String q, String tag, Pageable pageable) {
+        return search(categoryId, q, tag, null, pageable);
+    }
+
+    public Page<ForumThread> search(Long categoryId, String q, String tag, Boolean unanswered, Pageable pageable) {
+        return search(categoryId, q, tag, unanswered, null, pageable);
+    }
+
+    public Page<ForumThread> search(Long categoryId, String q, String tag, Boolean unanswered, Boolean solved, Pageable pageable) {
+        String keyword = q == null ? "" : q.trim().toLowerCase(Locale.ROOT);
+        String normalizedTag = normalizeTag(tag);
+
+        Specification<ForumThread> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(root.get("status").in(VISIBLE_STATUSES));
+
+            if (categoryId != null) {
+                predicates.add(cb.equal(root.get("categoryId"), categoryId));
+            }
+            if (!keyword.isBlank()) {
+                String pattern = likeContainsPattern(keyword);
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("title")), pattern, LIKE_ESCAPE_CHAR),
+                        cb.like(cb.lower(root.get("contentMarkdown")), pattern, LIKE_ESCAPE_CHAR),
+                        cb.like(cb.lower(cb.coalesce(root.get("tags"), "")), pattern, LIKE_ESCAPE_CHAR)
+                ));
+            }
+            if (!normalizedTag.isBlank()) {
+                var compactTags = cb.function(
+                        "replace",
+                        String.class,
+                        cb.lower(cb.coalesce(root.get("tags"), "")),
+                        cb.literal(" "),
+                        cb.literal("")
+                );
+                var delimitedTags = cb.concat(cb.concat(",", compactTags), ",");
+                predicates.add(cb.like(delimitedTags, "%," + escapeLike(normalizedTag) + ",%", LIKE_ESCAPE_CHAR));
+            }
+            if (Boolean.TRUE.equals(unanswered)) {
+                predicates.add(cb.equal(root.get("replyCount"), 0));
+            }
+            if (Boolean.TRUE.equals(solved)) {
+                predicates.add(cb.isNotNull(root.get("acceptedReplyId")));
+            } else if (Boolean.FALSE.equals(solved)) {
+                predicates.add(cb.isNull(root.get("acceptedReplyId")));
+            }
+
+            return cb.and(predicates.toArray(Predicate[]::new));
+        };
+
+        return threadRepo.findAll(spec, pageable);
     }
 
     public Page<ForumThread> listAll(Pageable pageable) {
         return threadRepo.findByStatusIn(VISIBLE_STATUSES, pageable);
+    }
+
+    public List<ForumTagSummaryResponse> popularTags(int limit) {
+        int cappedLimit = Math.max(1, Math.min(limit, 50));
+        Map<String, TagCounter> counters = new LinkedHashMap<>();
+        for (String tagText : threadRepo.findTagTextsByStatusIn(VISIBLE_STATUSES)) {
+            for (String rawTag : tagText.split(",")) {
+                String tag = rawTag.trim();
+                if (tag.isBlank()) continue;
+                String key = tag.toLowerCase(Locale.ROOT);
+                counters.computeIfAbsent(key, ignored -> new TagCounter(tag)).increment();
+            }
+        }
+
+        return counters.values().stream()
+                .sorted(Comparator.comparingLong(TagCounter::count).reversed()
+                        .thenComparing(counter -> counter.tag().toLowerCase(Locale.ROOT)))
+                .limit(cappedLimit)
+                .map(counter -> new ForumTagSummaryResponse(counter.tag(), counter.count()))
+                .toList();
     }
 
     public Page<ForumThread> listByAuthor(Long authorId, Pageable pageable) {
@@ -89,11 +175,11 @@ public class ForumThreadService {
             List<Predicate> predicates = new ArrayList<>();
 
             if (q != null && !q.isBlank()) {
-                String pattern = "%" + q.trim().toLowerCase() + "%";
+                String pattern = likeContainsPattern(q.trim().toLowerCase(Locale.ROOT));
                 predicates.add(cb.or(
-                        cb.like(cb.lower(root.get("title")), pattern),
-                        cb.like(cb.lower(root.get("contentMarkdown")), pattern),
-                        cb.like(cb.lower(cb.coalesce(root.get("tags"), "")), pattern)
+                        cb.like(cb.lower(root.get("title")), pattern, LIKE_ESCAPE_CHAR),
+                        cb.like(cb.lower(root.get("contentMarkdown")), pattern, LIKE_ESCAPE_CHAR),
+                        cb.like(cb.lower(cb.coalesce(root.get("tags"), "")), pattern, LIKE_ESCAPE_CHAR)
                 ));
             }
             if (authorId != null) {
@@ -127,6 +213,34 @@ public class ForumThreadService {
         return threadRepo.findById(id);
     }
 
+    @Transactional
+    public Optional<ForumThread> acceptReply(Long threadId, Long replyId, Long userId, boolean canModerate) {
+        if (replyId == null) return Optional.empty();
+        return threadRepo.findById(threadId)
+                .filter(t -> canManageThread(t, userId, canModerate))
+                .flatMap(t -> replyRepo.findById(replyId)
+                        .filter(r -> r.getThreadId().equals(threadId))
+                        .filter(r -> r.getStatus() == ForumReply.ReplyStatus.NORMAL)
+                        .map(r -> {
+                            t.setAcceptedReplyId(r.getId());
+                            t.setAcceptedReplyUserId(r.getAuthorId());
+                            t.setAcceptedAt(Instant.now());
+                            return threadRepo.save(t);
+                        }));
+    }
+
+    @Transactional
+    public Optional<ForumThread> clearAcceptedReply(Long threadId, Long userId, boolean canModerate) {
+        return threadRepo.findById(threadId)
+                .filter(t -> canManageThread(t, userId, canModerate))
+                .map(t -> {
+                    t.setAcceptedReplyId(null);
+                    t.setAcceptedReplyUserId(null);
+                    t.setAcceptedAt(null);
+                    return threadRepo.save(t);
+                });
+    }
+
     public List<AdminOperationLog> adminOperationLogs(Long id) {
         return operationLogRepo.findByTargetTypeAndTargetIdOrderByCreatedAtDesc(TARGET_TYPE, id);
     }
@@ -145,10 +259,7 @@ public class ForumThreadService {
         ForumThread saved = threadRepo.save(t);
 
         // 更新板块帖子计数
-        categoryRepo.findById(req.getCategoryId()).ifPresent(c -> {
-            c.setThreadCount(c.getThreadCount() + 1);
-            categoryRepo.save(c);
-        });
+        incrementCategoryCount(req.getCategoryId());
 
         return saved;
     }
@@ -166,14 +277,8 @@ public class ForumThreadService {
                     t.setLinkedRefType(req.getLinkedRefType());
                     t.setLinkedRefId(req.getLinkedRefId());
                     if (!oldCategoryId.equals(req.getCategoryId())) {
-                        categoryRepo.findById(oldCategoryId).ifPresent(c -> {
-                            c.setThreadCount(Math.max(0, c.getThreadCount() - 1));
-                            categoryRepo.save(c);
-                        });
-                        categoryRepo.findById(req.getCategoryId()).ifPresent(c -> {
-                            c.setThreadCount(c.getThreadCount() + 1);
-                            categoryRepo.save(c);
-                        });
+                        decrementCategoryCount(oldCategoryId);
+                        incrementCategoryCount(req.getCategoryId());
                     }
                     return threadRepo.save(t);
                 });
@@ -196,10 +301,7 @@ public class ForumThreadService {
 
     @Transactional
     public void incrementViewCount(Long id) {
-        threadRepo.findById(id).ifPresent(t -> {
-            t.setViewCount(t.getViewCount() + 1);
-            threadRepo.save(t);
-        });
+        viewCountBuffer.recordView(id);
     }
 
     @Transactional
@@ -285,18 +387,58 @@ public class ForumThreadService {
         return VISIBLE_STATUSES.contains(status);
     }
 
+    private boolean canManageThread(ForumThread thread, Long userId, boolean canModerate) {
+        return canModerate || (userId != null && thread.getAuthorId().equals(userId));
+    }
+
+    static String normalizeTag(String tag) {
+        if (tag == null) return "";
+        return tag.trim().toLowerCase(Locale.ROOT).replace(" ", "");
+    }
+
+    static String likeContainsPattern(String value) {
+        return "%" + escapeLike(value) + "%";
+    }
+
+    static String escapeLike(String value) {
+        StringBuilder escaped = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c == LIKE_ESCAPE_CHAR || c == '%' || c == '_') {
+                escaped.append(LIKE_ESCAPE_CHAR);
+            }
+            escaped.append(c);
+        }
+        return escaped.toString();
+    }
+
+    private static final class TagCounter {
+        private final String tag;
+        private long count;
+
+        private TagCounter(String tag) {
+            this.tag = tag;
+        }
+
+        private void increment() {
+            count++;
+        }
+
+        private String tag() {
+            return tag;
+        }
+
+        private long count() {
+            return count;
+        }
+    }
+
     private void decrementCategoryCount(Long categoryId) {
-        categoryRepo.findById(categoryId).ifPresent(c -> {
-            c.setThreadCount(Math.max(0, c.getThreadCount() - 1));
-            categoryRepo.save(c);
-        });
+        categoryRepo.decrementThreadCount(categoryId);
     }
 
     private void incrementCategoryCount(Long categoryId) {
-        categoryRepo.findById(categoryId).ifPresent(c -> {
-            c.setThreadCount(c.getThreadCount() + 1);
-            categoryRepo.save(c);
-        });
+        categoryRepo.incrementThreadCount(categoryId);
     }
 
     private void recordOperation(String operatorUsername, String action, Long targetId, String detail) {

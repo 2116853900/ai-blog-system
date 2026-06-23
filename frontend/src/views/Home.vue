@@ -1,10 +1,30 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { publicApi } from '../api'
-import type { Post } from '../api/types'
+import type { GlobalSearchType, Post, PublicStats } from '../api/types'
 
 const latestPosts = ref<Post[]>([])
+const stats = ref<PublicStats | null>(null)
+const statsLoading = ref(true)
+
+const typeLabels: Record<GlobalSearchType, string> = {
+  POST: '教程',
+  SKILL: 'Skill',
+  MCP: 'MCP',
+  API: 'API',
+  FORUM_THREAD: '讨论'
+}
+
+const apiSegments = computed(() => {
+  const health = stats.value?.apiHealth
+  if (!health || health.total === 0) return []
+  return [
+    { key: 'up', label: '在线', value: health.up, width: `${health.up * 100 / health.total}%` },
+    { key: 'down', label: '离线', value: health.down, width: `${health.down * 100 / health.total}%` },
+    { key: 'unknown', label: '未知', value: health.unknown, width: `${health.unknown * 100 / health.total}%` }
+  ].filter(segment => segment.value > 0)
+})
 
 const sections = [
   { to: '/skills', no: '01', cmd: 'skills', title: 'AI Skill 推荐', desc: '精选实用的 AI 能力与技巧，提升你的生产力' },
@@ -13,10 +33,23 @@ const sections = [
   { to: '/api-stations', no: '04', cmd: 'api', title: '公益 API 中转站', desc: '社区分享的公益 API，实时在线状态' }
 ]
 
+function fmtDate(value?: string) {
+  if (!value) return '—'
+  return new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })
+}
+
 onMounted(async () => {
   try {
     latestPosts.value = (await publicApi.posts()).slice(0, 4)
   } catch { /* ignore */ }
+  statsLoading.value = true
+  try {
+    stats.value = await publicApi.stats()
+  } catch {
+    stats.value = null
+  } finally {
+    statsLoading.value = false
+  }
 })
 </script>
 
@@ -53,6 +86,71 @@ onMounted(async () => {
         <p class="muted entry-desc">{{ s.desc }}</p>
         <span class="entry-go mono">cd → </span>
       </RouterLink>
+    </section>
+
+    <section v-if="statsLoading || stats" class="platform-dynamics">
+      <div class="dynamics-head">
+        <h2 class="section-title prompt">平台动态</h2>
+        <RouterLink to="/stats" class="muted mono dynamics-link">完整洞察 →</RouterLink>
+      </div>
+
+      <div v-if="statsLoading" class="dynamics-loading muted mono">加载中…</div>
+
+      <template v-else-if="stats">
+        <div class="dynamics-api card">
+          <div class="api-head">
+            <span class="mono dim">API 健康</span>
+            <strong class="mono">{{ stats.apiHealth.uptimeRate.toFixed(1) }}% 可用</strong>
+          </div>
+          <div v-if="apiSegments.length" class="status-rail" aria-label="API 状态分布">
+            <span
+              v-for="segment in apiSegments"
+              :key="segment.key"
+              :class="['rail-segment', segment.key]"
+              :style="{ width: segment.width }"
+              :title="`${segment.label}: ${segment.value}`"
+            ></span>
+          </div>
+          <p class="muted api-meta mono">
+            {{ stats.apiHealth.up }} 在线 / {{ stats.apiHealth.down }} 离线 / {{ stats.apiHealth.unknown }} 未知
+          </p>
+        </div>
+
+        <div class="dynamics-grid">
+          <div v-if="stats.recentItems.length" class="card dynamics-panel">
+            <h3 class="mono panel-title">最新收录</h3>
+            <RouterLink
+              v-for="item in stats.recentItems.slice(0, 6)"
+              :key="`${item.type}-${item.url}`"
+              :to="item.url"
+              class="dynamics-row"
+            >
+              <span class="mono row-type">{{ typeLabels[item.type] }}</span>
+              <span class="row-main">
+                <strong>{{ item.title }}</strong>
+                <small v-if="item.description" class="muted">{{ item.description }}</small>
+              </span>
+              <span class="mono dim row-meta">{{ fmtDate(item.createdAt) }}</span>
+            </RouterLink>
+          </div>
+
+          <div v-if="stats.hotThreads.length" class="card dynamics-panel">
+            <h3 class="mono panel-title">热门讨论</h3>
+            <RouterLink
+              v-for="thread in stats.hotThreads.slice(0, 5)"
+              :key="thread.id"
+              :to="thread.url"
+              class="dynamics-row thread-row"
+            >
+              <span class="row-main">
+                <strong>{{ thread.title }}</strong>
+                <small class="muted mono">{{ thread.replyCount }} 回复 · {{ thread.viewCount }} 浏览</small>
+              </span>
+              <span v-if="thread.solved" class="chip chip-active solved">已解决</span>
+            </RouterLink>
+          </div>
+        </div>
+      </template>
     </section>
 
     <section v-if="latestPosts.length" class="latest">
@@ -105,7 +203,7 @@ onMounted(async () => {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  margin-bottom: 64px;
+  margin-bottom: 48px;
 }
 .entry {
   padding: 24px;
@@ -128,10 +226,83 @@ onMounted(async () => {
 }
 .entry:hover .entry-go { color: var(--primary); transform: translateX(4px); }
 
+.platform-dynamics { margin-bottom: 56px; }
+.dynamics-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.dynamics-link { font-size: 13px; }
+.dynamics-loading { padding: 20px; }
+.dynamics-api { padding: 18px 20px; margin-bottom: 16px; }
+.api-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.api-head strong { color: var(--primary); font-size: 18px; }
+.status-rail {
+  height: 10px;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-inset);
+  margin-bottom: 10px;
+}
+.rail-segment.up { background: var(--accent); }
+.rail-segment.down { background: var(--danger); }
+.rail-segment.unknown { background: var(--text-dim); }
+.api-meta { margin: 0; font-size: 12px; }
+.dynamics-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+.dynamics-panel { padding: 18px 20px; }
+.panel-title { margin: 0 0 12px; font-size: 15px; }
+.dynamics-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+}
+.dynamics-row:first-of-type { border-top: 0; padding-top: 0; }
+.dynamics-row:hover { text-decoration: none; }
+.thread-row { grid-template-columns: minmax(0, 1fr) auto; }
+.row-type { font-size: 11px; color: var(--primary); }
+.row-main { min-width: 0; display: grid; gap: 2px; }
+.row-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.row-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.row-meta { font-size: 11px; white-space: nowrap; }
+.solved { font-size: 11px; }
+
 .latest { margin-top: 56px; }
 .post-card { padding: 22px; color: var(--text); display: flex; flex-direction: column; gap: 10px; }
 .post-card:hover { text-decoration: none; }
 .cat { align-self: flex-start; pointer-events: none; }
 .post-card h3 { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.4; }
 .post-card p { margin: 0; font-size: 14px; line-height: 1.6; }
+
+@media (max-width: 640px) {
+  .dynamics-row { grid-template-columns: 1fr; }
+  .row-meta { justify-self: start; }
+}
 </style>

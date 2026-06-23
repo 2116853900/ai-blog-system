@@ -4,10 +4,11 @@ import com.aiblog.entity.AdminOperationLog;
 import com.aiblog.entity.Comment;
 import com.aiblog.repository.AdminOperationLogRepository;
 import com.aiblog.repository.CommentRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -24,15 +25,15 @@ public class AdminCommentService {
         this.operationLogRepo = operationLogRepo;
     }
 
-    public List<Comment> list(Boolean pending, Comment.CommentStatus status) {
+    public Page<Comment> list(Boolean pending, Comment.CommentStatus status, Pageable pageable) {
         if (Boolean.TRUE.equals(pending)) {
             Comment.CommentStatus effectiveStatus = status == null ? Comment.CommentStatus.NORMAL : status;
-            return commentRepo.findByApprovedFalseAndStatusOrderByCreatedAtDesc(effectiveStatus);
+            return commentRepo.findByApprovedFalseAndStatusOrderByCreatedAtDesc(effectiveStatus, pageable);
         }
         if (status != null) {
-            return commentRepo.findByStatusOrderByCreatedAtDesc(status);
+            return commentRepo.findByStatusOrderByCreatedAtDesc(status, pageable);
         }
-        return commentRepo.findAllByOrderByCreatedAtDesc();
+        return commentRepo.findAllByOrderByCreatedAtDesc(pageable);
     }
 
     @Transactional

@@ -5,6 +5,10 @@ import { publicApi } from '../api'
 import type { Post } from '../api/types'
 import MarkdownView from '../components/MarkdownView.vue'
 import CommentSection from '../components/CommentSection.vue'
+import LinkedDiscussions from '../components/LinkedDiscussions.vue'
+import RelatedResources from '../components/RelatedResources.vue'
+import ResourceFavoriteButton from '../components/ResourceFavoriteButton.vue'
+import ResourceReviewPanel from '../components/ResourceReviewPanel.vue'
 import Skeleton from '../components/Skeleton.vue'
 
 const route = useRoute()
@@ -53,16 +57,29 @@ watch(() => route.params.slug, load)
 
     <article v-else-if="post">
       <header class="post-header">
-        <span v-if="post.category" class="chip chip-active cat">{{ post.category }}</span>
-        <h1 class="post-title mono">{{ post.title }}</h1>
-        <p class="muted meta mono">发布于 {{ fmt(post.createdAt) }}</p>
+        <div class="post-head-row">
+          <div class="post-head-main">
+            <span v-if="post.category" class="chip chip-active cat">{{ post.category }}</span>
+            <h1 class="post-title mono">{{ post.title }}</h1>
+            <p class="muted meta mono">发布于 {{ fmt(post.createdAt) }}</p>
+          </div>
+          <ResourceFavoriteButton ref-type="POST" :ref-id="post.id" />
+        </div>
       </header>
 
       <MarkdownView class="markdown-body" :source="post.bodyMarkdown" />
 
       <hr class="sep" />
+      <RelatedResources ref-type="POST" :ref-id="post.id" />
+
+      <hr class="sep" />
+      <LinkedDiscussions ref-type="POST" :ref-id="post.id" :source-title="post.title" />
+
+      <hr class="sep" />
       <CommentSection ref-type="POST" :ref-id="post.id" />
     </article>
+
+    <ResourceReviewPanel v-if="post?.id" ref-type="POST" :ref-id="post.id" />
   </div>
 </template>
 
@@ -73,8 +90,13 @@ watch(() => route.params.slug, load)
 .notfound { display: grid; place-items: center; gap: 14px; padding: 60px 0; text-align: center; }
 .nf-mark { font-size: 56px; font-weight: 800; color: var(--primary-dim); }
 .post-header { margin-bottom: 28px; }
+.post-head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
+.post-head-main { min-width: 0; }
 .cat { margin-bottom: 12px; pointer-events: none; }
 .post-title { margin: 0 0 8px; font-size: 32px; font-weight: 800; line-height: 1.25; letter-spacing: -0.01em; }
 .meta { font-size: 13px; }
 .sep { border: none; border-top: 1px dashed var(--border-strong); margin: 36px 0; }
+@media (max-width: 640px) {
+  .post-head-row { flex-direction: column; }
+}
 </style>

@@ -1,12 +1,14 @@
 package com.aiblog.controller.admin;
 
+import com.aiblog.cache.PublicContentCacheService;
 import com.aiblog.entity.Post;
 import com.aiblog.repository.PostRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -14,15 +16,21 @@ import java.util.Map;
 public class AdminPostController {
 
     private final PostRepository repo;
+    private final PublicContentCacheService cacheService;
 
-    public AdminPostController(PostRepository repo) {
+    public AdminPostController(PostRepository repo, PublicContentCacheService cacheService) {
         this.repo = repo;
+        this.cacheService = cacheService;
     }
 
     /** 全部教程（含未发布） */
     @GetMapping
-    public List<Post> list() {
-        List<Post> posts = repo.findAll(Sort.by(Sort.Direction.DESC, "updatedAt"));
+    public Page<Post> list(@RequestParam(defaultValue = "0") int page,
+                           @RequestParam(defaultValue = "20") int size) {
+        Page<Post> posts = repo.findAll(PageRequest.of(
+                normalizePage(page),
+                normalizeSize(size),
+                Sort.by(Sort.Direction.DESC, "updatedAt")));
         posts.forEach(p -> p.setBodyMarkdown(null));
         return posts;
     }
@@ -41,7 +49,9 @@ public class AdminPostController {
             return ResponseEntity.badRequest().body(Map.of("message", "slug 已存在"));
         }
         body.setId(null);
-        return ResponseEntity.ok(repo.save(body));
+        Post saved = repo.save(body);
+        cacheService.evictPosts();
+        return ResponseEntity.ok(saved);
     }
 
     @PutMapping("/{id}")
@@ -54,7 +64,9 @@ public class AdminPostController {
             p.setTags(body.getTags());
             p.setCategory(body.getCategory());
             p.setPublished(body.isPublished());
-            return ResponseEntity.ok(repo.save(p));
+            Post saved = repo.save(p);
+            cacheService.evictPosts();
+            return ResponseEntity.ok(saved);
         }).orElse(ResponseEntity.notFound().build());
     }
 
@@ -63,13 +75,24 @@ public class AdminPostController {
     public ResponseEntity<Post> togglePublish(@PathVariable Long id, @RequestParam boolean published) {
         return repo.findById(id).map(p -> {
             p.setPublished(published);
-            return ResponseEntity.ok(repo.save(p));
+            Post saved = repo.save(p);
+            cacheService.evictPosts();
+            return ResponseEntity.ok(saved);
         }).orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         repo.deleteById(id);
+        cacheService.evictPosts();
         return ResponseEntity.noContent().build();
+    }
+
+    private int normalizePage(int page) {
+        return Math.max(0, page);
+    }
+
+    private int normalizeSize(int size) {
+        return Math.max(1, Math.min(100, size));
     }
 }

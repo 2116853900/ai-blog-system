@@ -1,28 +1,67 @@
 import http from './http'
 import type {
-  Post, Skill, Mcp, ApiStation, Comment, RefType,
+  Post, Skill, Mcp, ApiStation, ApiStatus, ApiStationStatusCheck, Comment, RefType,
+  ApiStationStatusSummary,
+  ApiStationHealthDashboard,
+  ApiStationHealthTrendResponse,
   SubmissionType, Submission, AuthResponse, UserProfile,
-  ForumCategory, ForumThread, ForumReply, Page, AdminOperationLog,
+  ForumCategory, ForumTagSummary, ForumThread, ForumReply, Page, AdminOperationLog,
   ThreadStatus, ReplyStatus, AdminForumUser, UserStatus, ForumInteraction,
-  ContentReport, ReportReasonType, ReportStatus, ReportTargetType, CommentStatus
+  ForumSubscriptionSummary, ForumThreadSubscriptionItem,
+  ResourceFavoriteInteraction, ResourceFavoriteItem, ResourceFavoriteRefType, UserNotification,
+  ResourceReview, ResourceReviewSummary, AccountResourceReviewItem, RelatedResource,
+  ContentReport, ContentReportTarget, ReportReasonType, ReportStatus, ReportTargetType, CommentStatus,
+  GlobalSearchResponse, AdminDashboard, ResourceTagSummary, PublicStats
 } from './types'
 
 // ---------- 公开接口 ----------
 export const publicApi = {
-  posts: () => http.get<Post[]>('/posts').then(r => r.data),
+  posts: (params?: { q?: string; tag?: string; category?: string }) =>
+    http.get<Post[]>('/posts', { params }).then(r => r.data),
   post: (slug: string) => http.get<Post>(`/posts/${slug}`).then(r => r.data),
+  postPopularTags: (params?: { limit?: number }) =>
+    http.get<ResourceTagSummary[]>('/posts/tags/popular', { params }).then(r => r.data),
+  search: (params?: { q?: string; limit?: number }) =>
+    http.get<GlobalSearchResponse>('/search', { params }).then(r => r.data),
+  stats: () => http.get<PublicStats>('/stats').then(r => r.data),
 
   skills: (params?: { q?: string; tag?: string; category?: string }) =>
     http.get<Skill[]>('/skills', { params }).then(r => r.data),
+  skill: (id: number) => http.get<Skill>(`/skills/${id}`).then(r => r.data),
+  skillPopularTags: (params?: { limit?: number }) =>
+    http.get<ResourceTagSummary[]>('/skills/tags/popular', { params }).then(r => r.data),
 
   mcps: (params?: { q?: string; tag?: string; category?: string }) =>
     http.get<Mcp[]>('/mcps', { params }).then(r => r.data),
+  mcp: (id: number) => http.get<Mcp>(`/mcps/${id}`).then(r => r.data),
+  mcpPopularTags: (params?: { limit?: number }) =>
+    http.get<ResourceTagSummary[]>('/mcps/tags/popular', { params }).then(r => r.data),
 
-  apiStations: (params?: { q?: string; tag?: string }) =>
+  apiStations: (params?: { q?: string; tag?: string; status?: ApiStatus }) =>
     http.get<ApiStation[]>('/api-stations', { params }).then(r => r.data),
+  apiStation: (id: number) => http.get<ApiStation>(`/api-stations/${id}`).then(r => r.data),
+  apiStationPopularTags: (params?: { limit?: number }) =>
+    http.get<ResourceTagSummary[]>('/api-stations/tags/popular', { params }).then(r => r.data),
+  apiStationChecks: (id: number, params?: { limit?: number }) =>
+    http.get<ApiStationStatusCheck[]>(`/api-stations/${id}/checks`, { params }).then(r => r.data),
+  apiStationCheckSummary: (id: number, params?: { limit?: number }) =>
+    http.get<ApiStationStatusSummary>(`/api-stations/${id}/checks/summary`, { params }).then(r => r.data),
+  apiStationHealthDashboard: (params?: { sampleLimit?: number; failureLimit?: number }) =>
+    http.get<ApiStationHealthDashboard>('/api-stations/health-dashboard', { params }).then(r => r.data),
+  apiStationHealthTrends: (params?: { days?: number; incidentLimit?: number }) =>
+    http.get<ApiStationHealthTrendResponse>('/api-stations/health-trends', { params }).then(r => r.data),
 
   comments: (type: RefType, refId: number) =>
     http.get<Comment[]>('/comments', { params: { type, refId } }).then(r => r.data),
+
+  resourceFavoriteInteraction: (refType: ResourceFavoriteRefType, refId: number) =>
+    http.get<ResourceFavoriteInteraction>(`/resource-favorites/${refType}/${refId}`).then(r => r.data),
+  resourceReviewSummary: (refType: ResourceFavoriteRefType, refId: number) =>
+    http.get<ResourceReviewSummary>(`/resource-reviews/${refType}/${refId}/summary`).then(r => r.data),
+  resourceReviews: (refType: ResourceFavoriteRefType, refId: number, params?: { page?: number; size?: number }) =>
+    http.get<Page<ResourceReview>>(`/resource-reviews/${refType}/${refId}`, { params }).then(r => r.data),
+  relatedResources: (refType: ResourceFavoriteRefType, refId: number, params?: { limit?: number }) =>
+    http.get<RelatedResource[]>('/related-resources', { params: { refType, refId, ...params } }).then(r => r.data),
 
   addComment: (body: { refType: RefType; refId: number; author: string; content: string }) =>
     http.post('/comments', body).then(r => r.data),
@@ -45,11 +84,49 @@ export const authApi = {
     http.put('/auth/password', body).then(r => r.data)
 }
 
+export const accountApi = {
+  threads: (params?: { page?: number; size?: number }) =>
+    http.get<Page<ForumThread>>('/account/threads', { params }).then(r => r.data),
+  replies: (params?: { page?: number; size?: number }) =>
+    http.get<Page<ForumReply>>('/account/replies', { params }).then(r => r.data),
+  favorites: (params?: { page?: number; size?: number }) =>
+    http.get<Page<ForumThread>>('/account/favorites', { params }).then(r => r.data),
+  subscriptions: (params?: { unreadOnly?: boolean; page?: number; size?: number }) =>
+    http.get<Page<ForumThreadSubscriptionItem>>('/account/subscriptions', { params }).then(r => r.data),
+  subscriptionSummary: () =>
+    http.get<ForumSubscriptionSummary>('/account/subscription-summary').then(r => r.data),
+  resourceFavorites: (params?: { page?: number; size?: number }) =>
+    http.get<Page<ResourceFavoriteItem>>('/account/resource-favorites', { params }).then(r => r.data),
+  resourceReviews: (params?: { page?: number; size?: number }) =>
+    http.get<Page<AccountResourceReviewItem>>('/account/resource-reviews', { params }).then(r => r.data),
+  favoriteResource: (refType: ResourceFavoriteRefType, refId: number) =>
+    http.post<ResourceFavoriteInteraction>(`/account/resource-favorites/${refType}/${refId}`).then(r => r.data),
+  unfavoriteResource: (refType: ResourceFavoriteRefType, refId: number) =>
+    http.delete<ResourceFavoriteInteraction>(`/account/resource-favorites/${refType}/${refId}`).then(r => r.data),
+  upsertResourceReview: (
+    refType: ResourceFavoriteRefType,
+    refId: number,
+    body: { rating: number; content?: string }
+  ) => http.post<ResourceReview>(`/account/resource-reviews/${refType}/${refId}`, body).then(r => r.data),
+  deleteResourceReview: (refType: ResourceFavoriteRefType, refId: number) =>
+    http.delete(`/account/resource-reviews/${refType}/${refId}`),
+  notifications: (params?: { page?: number; size?: number }) =>
+    http.get<Page<UserNotification>>('/account/notifications', { params }).then(r => r.data),
+  unreadNotificationCount: () =>
+    http.get<{ count: number }>('/account/notifications/unread-count').then(r => r.data),
+  markNotificationRead: (id: number) =>
+    http.post<UserNotification>(`/account/notifications/${id}/read`).then(r => r.data),
+  markAllNotificationsRead: () =>
+    http.post<{ affected: number }>('/account/notifications/read-all').then(r => r.data)
+}
+
 export const forumApi = {
   categories: () => http.get<ForumCategory[]>('/forum/categories').then(r => r.data),
   category: (id: number) => http.get<ForumCategory>(`/forum/categories/${id}`).then(r => r.data),
-  threads: (params?: { categoryId?: number; q?: string; page?: number; size?: number }) =>
+  threads: (params?: { categoryId?: number; q?: string; tag?: string; unanswered?: boolean; solved?: boolean; sort?: 'latest' | 'newest' | 'popular'; page?: number; size?: number }) =>
     http.get<Page<ForumThread>>('/forum/threads', { params }).then(r => r.data),
+  popularThreadTags: (params?: { limit?: number }) =>
+    http.get<ForumTagSummary[]>('/forum/threads/tags/popular', { params }).then(r => r.data),
   thread: (id: number) => http.get<ForumThread>(`/forum/threads/${id}`).then(r => r.data),
   linkedThreads: (refType: RefType, refId: number) =>
     http.get<ForumThread[]>('/forum/threads/linked', { params: { refType, refId } }).then(r => r.data),
@@ -58,6 +135,10 @@ export const forumApi = {
   updateThread: (id: number, body: { categoryId: number; title: string; contentMarkdown: string; tags?: string; linkedRefType?: RefType; linkedRefId?: number }) =>
     http.put<ForumThread>(`/forum/threads/${id}`, body).then(r => r.data),
   deleteThread: (id: number) => http.delete(`/forum/threads/${id}`),
+  acceptReply: (threadId: number, replyId: number) =>
+    http.post<ForumThread>(`/forum/threads/${threadId}/solution`, { replyId }).then(r => r.data),
+  clearAcceptedReply: (threadId: number) =>
+    http.delete<ForumThread>(`/forum/threads/${threadId}/solution`).then(r => r.data),
   replies: (threadId: number, params?: { page?: number; size?: number }) =>
     http.get<Page<ForumReply>>(`/forum/threads/${threadId}/replies`, { params }).then(r => r.data),
   createReply: (threadId: number, body: { contentMarkdown: string; replyToId?: number }) =>
@@ -75,18 +156,41 @@ export const forumApi = {
     http.post<ForumInteraction>(`/forum/threads/${threadId}/favorite`).then(r => r.data),
   unfavoriteThread: (threadId: number) =>
     http.delete<ForumInteraction>(`/forum/threads/${threadId}/favorite`).then(r => r.data),
+  subscribeThread: (threadId: number) =>
+    http.post<ForumInteraction>(`/forum/threads/${threadId}/subscription`).then(r => r.data),
+  unsubscribeThread: (threadId: number) =>
+    http.delete<ForumInteraction>(`/forum/threads/${threadId}/subscription`).then(r => r.data),
+  markThreadSubscriptionRead: (threadId: number) =>
+    http.post<ForumInteraction>(`/forum/threads/${threadId}/subscription/read`).then(r => r.data),
   report: (body: { targetType: ReportTargetType; targetId: number; reasonType: ReportReasonType; reasonText?: string }) =>
     http.post<ContentReport>('/reports', body).then(r => r.data)
 }
 
 export const userApi = {
-  profile: (id: number) => http.get<UserProfile>(`/users/${id}`).then(r => r.data)
+  profile: (id: number) => http.get<UserProfile>(`/users/${id}`).then(r => r.data),
+  threads: (id: number, params?: { page?: number; size?: number }) =>
+    http.get<Page<ForumThread>>(`/users/${id}/threads`, { params }).then(r => r.data),
+  replies: (id: number, params?: { page?: number; size?: number }) =>
+    http.get<Page<ForumReply>>(`/users/${id}/replies`, { params }).then(r => r.data)
 }
 
 // ---------- 后台接口 ----------
 export const adminApi = {
+  dashboard: () => http.get<AdminDashboard>('/admin/dashboard').then(r => r.data),
+  operationLogs: (params?: {
+    operatorUsername?: string
+    action?: string
+    targetType?: string
+    targetId?: number
+    createdFrom?: string
+    createdTo?: string
+    page?: number
+    size?: number
+  }) => http.get<Page<AdminOperationLog>>('/admin/operation-logs', { params }).then(r => r.data),
+
   // posts
-  posts: () => http.get<Post[]>('/admin/posts').then(r => r.data),
+  posts: (params?: { page?: number; size?: number }) =>
+    http.get<Page<Post>>('/admin/posts', { params }).then(r => r.data),
   post: (id: number) => http.get<Post>(`/admin/posts/${id}`).then(r => r.data),
   createPost: (body: Partial<Post>) => http.post<Post>('/admin/posts', body).then(r => r.data),
   updatePost: (id: number, body: Partial<Post>) => http.put<Post>(`/admin/posts/${id}`, body).then(r => r.data),
@@ -95,19 +199,22 @@ export const adminApi = {
   deletePost: (id: number) => http.delete(`/admin/posts/${id}`),
 
   // skills
-  skills: () => http.get<Skill[]>('/admin/skills').then(r => r.data),
+  skills: (params?: { page?: number; size?: number }) =>
+    http.get<Page<Skill>>('/admin/skills', { params }).then(r => r.data),
   createSkill: (body: Partial<Skill>) => http.post<Skill>('/admin/skills', body).then(r => r.data),
   updateSkill: (id: number, body: Partial<Skill>) => http.put<Skill>(`/admin/skills/${id}`, body).then(r => r.data),
   deleteSkill: (id: number) => http.delete(`/admin/skills/${id}`),
 
   // mcps
-  mcps: () => http.get<Mcp[]>('/admin/mcps').then(r => r.data),
+  mcps: (params?: { page?: number; size?: number }) =>
+    http.get<Page<Mcp>>('/admin/mcps', { params }).then(r => r.data),
   createMcp: (body: Partial<Mcp>) => http.post<Mcp>('/admin/mcps', body).then(r => r.data),
   updateMcp: (id: number, body: Partial<Mcp>) => http.put<Mcp>(`/admin/mcps/${id}`, body).then(r => r.data),
   deleteMcp: (id: number) => http.delete(`/admin/mcps/${id}`),
 
   // api stations
-  apiStations: () => http.get<ApiStation[]>('/admin/api-stations').then(r => r.data),
+  apiStations: (params?: { page?: number; size?: number }) =>
+    http.get<Page<ApiStation>>('/admin/api-stations', { params }).then(r => r.data),
   createApiStation: (body: Partial<ApiStation>) => http.post<ApiStation>('/admin/api-stations', body).then(r => r.data),
   updateApiStation: (id: number, body: Partial<ApiStation>) => http.put<ApiStation>(`/admin/api-stations/${id}`, body).then(r => r.data),
   deleteApiStation: (id: number) => http.delete(`/admin/api-stations/${id}`),
@@ -115,16 +222,16 @@ export const adminApi = {
   checkAllApiStations: () => http.post('/admin/api-stations/check-all'),
 
   // comments
-  comments: (params?: { pending?: boolean; status?: CommentStatus }) =>
-    http.get<Comment[]>('/admin/comments', { params }).then(r => r.data),
+  comments: (params?: { pending?: boolean; status?: CommentStatus; page?: number; size?: number }) =>
+    http.get<Page<Comment>>('/admin/comments', { params }).then(r => r.data),
   approveComment: (id: number) => http.post(`/admin/comments/${id}/approve`).then(r => r.data),
   hideComment: (id: number) => http.post<Comment>(`/admin/comments/${id}/hide`).then(r => r.data),
   restoreComment: (id: number) => http.post<Comment>(`/admin/comments/${id}/restore`).then(r => r.data),
   deleteComment: (id: number) => http.delete(`/admin/comments/${id}`),
 
   // submissions
-  submissions: (status?: string) =>
-    http.get<Submission[]>('/admin/submissions', { params: status ? { status } : {} }).then(r => r.data),
+  submissions: (params?: { status?: string; page?: number; size?: number }) =>
+    http.get<Page<Submission>>('/admin/submissions', { params }).then(r => r.data),
   approveSubmission: (id: number) => http.post(`/admin/submissions/${id}/approve`).then(r => r.data),
   rejectSubmission: (id: number) => http.post(`/admin/submissions/${id}/reject`).then(r => r.data),
   deleteSubmission: (id: number) => http.delete(`/admin/submissions/${id}`),
@@ -220,6 +327,10 @@ export const adminApi = {
     size?: number
   }) => http.get<Page<ContentReport>>('/admin/reports', { params }).then(r => r.data),
   report: (id: number) => http.get<ContentReport>(`/admin/reports/${id}`).then(r => r.data),
+  reportLogs: (id: number) =>
+    http.get<AdminOperationLog[]>(`/admin/reports/${id}/operation-logs`).then(r => r.data),
+  reportTarget: (id: number) =>
+    http.get<ContentReportTarget>(`/admin/reports/${id}/target`).then(r => r.data),
   approveReport: (id: number, body: { reviewNote?: string; hideContent?: boolean; banTargetAuthor?: boolean; banReason?: string; banEndTime?: string }) =>
     http.post<ContentReport>(`/admin/reports/${id}/approve`, body).then(r => r.data),
   rejectReport: (id: number, body: { reviewNote?: string }) =>

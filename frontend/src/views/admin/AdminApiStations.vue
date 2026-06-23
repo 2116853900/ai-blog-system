@@ -1,17 +1,21 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { adminApi } from '../../api'
-import type { ApiStation } from '../../api/types'
+import type { ApiStation, Page } from '../../api/types'
 import StatusBadge from '../../components/StatusBadge.vue'
 
-const items = ref<ApiStation[]>([])
 const loading = ref(false)
 const editing = ref<Partial<ApiStation> | null>(null)
 const checking = ref<number | null>(null)
+const page = ref(0)
+const size = 20
+const pageData = ref<Page<ApiStation> | null>(null)
+
+const items = computed(() => pageData.value?.content ?? [])
 
 async function load() {
   loading.value = true
-  try { items.value = await adminApi.apiStations() } finally { loading.value = false }
+  try { pageData.value = await adminApi.apiStations({ page: page.value, size }) } finally { loading.value = false }
 }
 
 function add() { editing.value = { name: '', baseUrl: '', description: '', supportedModels: '', tags: '' } }
@@ -37,14 +41,29 @@ async function check(s: ApiStation) {
   checking.value = s.id
   try {
     const updated = await adminApi.checkApiStation(s.id)
-    const i = items.value.findIndex(x => x.id === s.id)
-    if (i >= 0) items.value[i] = updated
+    const content = pageData.value?.content
+    const i = content?.findIndex(x => x.id === s.id) ?? -1
+    if (content && i >= 0) content[i] = updated
   } finally { checking.value = null }
 }
 
 async function checkAll() {
   loading.value = true
   try { await adminApi.checkAllApiStations(); await load() } finally { loading.value = false }
+}
+
+function previousPage() {
+  if (!pageData.value?.first) {
+    page.value -= 1
+    load()
+  }
+}
+
+function nextPage() {
+  if (!pageData.value?.last) {
+    page.value += 1
+    load()
+  }
 }
 
 onMounted(load)
@@ -61,6 +80,7 @@ onMounted(load)
     </div>
 
     <p v-if="loading" class="muted">加载中…</p>
+    <p v-else-if="!items.length" class="muted">没有 API 站点。</p>
     <table v-else class="table">
       <thead><tr><th>名称</th><th>地址</th><th>状态</th><th>操作</th></tr></thead>
       <tbody>
@@ -78,6 +98,12 @@ onMounted(load)
         </tr>
       </tbody>
     </table>
+
+    <div v-if="pageData" class="pager">
+      <button class="btn btn-sm" :disabled="pageData.first" @click="previousPage">上一页</button>
+      <span class="muted">第 {{ pageData.number + 1 }} / {{ Math.max(pageData.totalPages, 1) }} 页，共 {{ pageData.totalElements }} 条</span>
+      <button class="btn btn-sm" :disabled="pageData.last" @click="nextPage">下一页</button>
+    </div>
 
     <div v-if="editing" class="modal-mask" @click.self="cancel">
       <div class="modal card">
@@ -102,6 +128,7 @@ onMounted(load)
 .table { width: 100%; border-collapse: collapse; }
 .table th, .table td { text-align: left; padding: 12px; border-bottom: 1px solid var(--border); }
 .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.pager { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
 .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
 .modal { padding: 24px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 .modal h2 { margin: 0 0 8px; }

@@ -4,7 +4,10 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "submission")
+@Table(name = "submission", indexes = {
+        @Index(name = "idx_submission_status_created", columnList = "status,createdAt"),
+        @Index(name = "idx_submission_created", columnList = "createdAt")
+})
 public class Submission {
     public enum Type { SKILL, MCP, API }
     public enum Status { PENDING, APPROVED, REJECTED }

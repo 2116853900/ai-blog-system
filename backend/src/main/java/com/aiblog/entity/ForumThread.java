@@ -7,7 +7,9 @@ import java.time.Instant;
 @Table(name = "forum_thread", indexes = {
     @Index(name = "idx_category_status", columnList = "categoryId,status,lastReplyAt"),
     @Index(name = "idx_author", columnList = "authorId"),
-    @Index(name = "idx_linked", columnList = "linkedRefType,linkedRefId")
+    @Index(name = "idx_linked", columnList = "linkedRefType,linkedRefId"),
+    @Index(name = "idx_status_last_reply", columnList = "status,lastReplyAt"),
+    @Index(name = "idx_author_status_created", columnList = "authorId,status,createdAt")
 })
 public class ForumThread {
 
@@ -54,6 +56,12 @@ public class ForumThread {
     private Long lastReplyUserId;
 
     private Instant lastReplyAt;
+
+    private Long acceptedReplyId;
+
+    private Long acceptedReplyUserId;
+
+    private Instant acceptedAt;
 
     /** 关联博客系统内容类型 */
     private String linkedRefType;
@@ -113,6 +121,15 @@ public class ForumThread {
 
     public Instant getLastReplyAt() { return lastReplyAt; }
     public void setLastReplyAt(Instant lastReplyAt) { this.lastReplyAt = lastReplyAt; }
+
+    public Long getAcceptedReplyId() { return acceptedReplyId; }
+    public void setAcceptedReplyId(Long acceptedReplyId) { this.acceptedReplyId = acceptedReplyId; }
+
+    public Long getAcceptedReplyUserId() { return acceptedReplyUserId; }
+    public void setAcceptedReplyUserId(Long acceptedReplyUserId) { this.acceptedReplyUserId = acceptedReplyUserId; }
+
+    public Instant getAcceptedAt() { return acceptedAt; }
+    public void setAcceptedAt(Instant acceptedAt) { this.acceptedAt = acceptedAt; }
 
     public String getLinkedRefType() { return linkedRefType; }
     public void setLinkedRefType(String linkedRefType) { this.linkedRefType = linkedRefType; }

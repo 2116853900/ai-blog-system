@@ -26,20 +26,29 @@ public class ForumReplyService {
 
     private static final String TARGET_TYPE = "FORUM_REPLY";
     private static final List<ForumReply.ReplyStatus> VISIBLE_STATUSES = List.of(ForumReply.ReplyStatus.NORMAL);
+    private static final List<ForumThread.ThreadStatus> VISIBLE_THREAD_STATUSES = List.of(
+            ForumThread.ThreadStatus.NORMAL,
+            ForumThread.ThreadStatus.PINNED,
+            ForumThread.ThreadStatus.FEATURED,
+            ForumThread.ThreadStatus.LOCKED
+    );
 
     private final ForumReplyRepository replyRepo;
     private final ForumThreadRepository threadRepo;
     private final ForumUserRepository userRepo;
     private final AdminOperationLogRepository operationLogRepo;
+    private final NotificationService notificationService;
 
     public ForumReplyService(ForumReplyRepository replyRepo,
                              ForumThreadRepository threadRepo,
                              ForumUserRepository userRepo,
-                             AdminOperationLogRepository operationLogRepo) {
+                             AdminOperationLogRepository operationLogRepo,
+                             NotificationService notificationService) {
         this.replyRepo = replyRepo;
         this.threadRepo = threadRepo;
         this.userRepo = userRepo;
         this.operationLogRepo = operationLogRepo;
+        this.notificationService = notificationService;
     }
 
     public Page<ForumReply> listByThread(Long threadId, Pageable pageable) {
@@ -48,6 +57,10 @@ public class ForumReplyService {
 
     public Page<ForumReply> listByAuthor(Long authorId, Pageable pageable) {
         return replyRepo.findByAuthorIdAndStatusIn(authorId, VISIBLE_STATUSES, pageable);
+    }
+
+    public Page<ForumReply> listVisibleByAuthor(Long authorId, Pageable pageable) {
+        return replyRepo.findVisibleByAuthorId(authorId, VISIBLE_STATUSES, VISIBLE_THREAD_STATUSES, pageable);
     }
 
     public Page<ForumReply> adminSearch(Long threadId,
@@ -104,11 +117,11 @@ public class ForumReplyService {
 
     @Transactional
     public ForumReply create(Long threadId, ReplyRequest req, Long authorId) {
-        ForumThread thread = threadRepo.findById(threadId)
+        ForumThread thread = threadRepo.findByIdForUpdate(threadId)
                 .orElseThrow(() -> new IllegalArgumentException("帖子不存在"));
 
-        // 计算楼层号
-        int floor = replyRepo.countByThreadIdAndStatus(threadId, ForumReply.ReplyStatus.NORMAL) + 1;
+        // 同一帖子内串行分配楼层，避免高并发回复时重复楼层号。
+        int floor = replyRepo.findMaxFloorNumberByThreadId(threadId) + 1;
 
         ForumReply reply = new ForumReply();
         reply.setThreadId(threadId);
@@ -126,10 +139,9 @@ public class ForumReplyService {
         ForumReply saved = replyRepo.save(reply);
 
         // 更新帖子的回复计数和最后回复信息
-        thread.setReplyCount(thread.getReplyCount() + 1);
-        thread.setLastReplyUserId(authorId);
-        thread.setLastReplyAt(Instant.now());
-        threadRepo.save(thread);
+        threadRepo.incrementReplyCount(threadId, authorId, Instant.now());
+
+        notificationService.notifyReplyCreated(thread, saved);
 
         return saved;
     }
@@ -154,6 +166,7 @@ public class ForumReplyService {
                     replyRepo.save(r);
                     if (wasVisible) {
                         decrementThreadReplyCount(r.getThreadId());
+                        clearAcceptedReplyIfNeeded(r);
                     }
                     return true;
                 }).orElse(false);
@@ -168,6 +181,7 @@ public class ForumReplyService {
                 ForumReply saved = replyRepo.save(r);
                 if (wasVisible) {
                     decrementThreadReplyCount(r.getThreadId());
+                    clearAcceptedReplyIfNeeded(r);
                 }
                 recordOperation(operatorUsername, "HIDE_FORUM_REPLY", id, reason);
                 return saved;
@@ -199,6 +213,7 @@ public class ForumReplyService {
             ForumReply saved = replyRepo.save(r);
             if (wasVisible) {
                 decrementThreadReplyCount(r.getThreadId());
+                clearAcceptedReplyIfNeeded(r);
             }
             recordOperation(operatorUsername, "DELETE_FORUM_REPLY", id, reason);
             return saved;
@@ -243,19 +258,22 @@ public class ForumReplyService {
     }
 
     private void decrementThreadReplyCount(Long threadId) {
-        threadRepo.findById(threadId).ifPresent(t -> {
-            t.setReplyCount(Math.max(0, t.getReplyCount() - 1));
-            threadRepo.save(t);
-        });
+        threadRepo.decrementReplyCount(threadId);
     }
 
     private void incrementThreadReplyCount(Long threadId, Long authorId) {
-        threadRepo.findById(threadId).ifPresent(t -> {
-            t.setReplyCount(t.getReplyCount() + 1);
-            t.setLastReplyUserId(authorId);
-            t.setLastReplyAt(Instant.now());
-            threadRepo.save(t);
-        });
+        threadRepo.incrementReplyCount(threadId, authorId, Instant.now());
+    }
+
+    private void clearAcceptedReplyIfNeeded(ForumReply reply) {
+        threadRepo.findById(reply.getThreadId())
+                .filter(thread -> reply.getId().equals(thread.getAcceptedReplyId()))
+                .ifPresent(thread -> {
+                    thread.setAcceptedReplyId(null);
+                    thread.setAcceptedReplyUserId(null);
+                    thread.setAcceptedAt(null);
+                    threadRepo.save(thread);
+                });
     }
 
     private void recordOperation(String operatorUsername, String action, Long targetId, String detail) {

@@ -31,9 +31,12 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // 公开接口
                 .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/posts/**", "/api/skills/**",
+                .requestMatchers(HttpMethod.GET, "/api/search", "/api/search/**", "/api/stats", "/api/stats/**",
+                        "/api/related-resources", "/api/related-resources/**",
+                        "/api/posts/**", "/api/skills/**",
                         "/api/mcps/**", "/api/api-stations/**", "/api/comments/**",
                         "/api/forum/categories/**", "/api/forum/threads/**",
+                        "/api/resource-favorites/**", "/api/resource-reviews/**",
                         "/api/users/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/comments", "/api/submissions").permitAll()
                 // 论坛写操作（需登录）

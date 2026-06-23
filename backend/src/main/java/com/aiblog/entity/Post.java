@@ -4,8 +4,11 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "post")
-public class Post {
+@Table(name = "post", indexes = {
+        @Index(name = "idx_post_updated", columnList = "updatedAt"),
+        @Index(name = "idx_post_published_created", columnList = "published,createdAt")
+})
+public class Post implements com.aiblog.service.ResourceReviewBatchAggregator.ReviewRatingTarget {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -36,6 +39,12 @@ public class Post {
     @Column(nullable = false)
     private Instant updatedAt = Instant.now();
 
+    @Transient
+    private double averageRating;
+
+    @Transient
+    private long reviewCount;
+
     @PreUpdate
     public void onUpdate() { this.updatedAt = Instant.now(); }
 
@@ -59,4 +68,13 @@ public class Post {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+
+    public double getAverageRating() { return averageRating; }
+    public void setAverageRating(double averageRating) { this.averageRating = averageRating; }
+
+    public long getReviewCount() { return reviewCount; }
+    public void setReviewCount(long reviewCount) { this.reviewCount = reviewCount; }
+
+    @Override
+    public Long getReviewRefId() { return id; }
 }

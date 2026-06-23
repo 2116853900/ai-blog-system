@@ -9,6 +9,8 @@ export interface Post {
   published: boolean
   createdAt: string
   updatedAt: string
+  averageRating?: number
+  reviewCount?: number
 }
 
 export interface Skill {
@@ -20,6 +22,8 @@ export interface Skill {
   category?: string
   recommendLevel?: number
   createdAt?: string
+  averageRating?: number
+  reviewCount?: number
 }
 
 export interface Mcp {
@@ -32,6 +36,8 @@ export interface Mcp {
   category?: string
   recommendLevel?: number
   createdAt?: string
+  averageRating?: number
+  reviewCount?: number
 }
 
 export type ApiStatus = 'UP' | 'DOWN' | 'UNKNOWN'
@@ -47,6 +53,102 @@ export interface ApiStation {
   latencyMs?: number
   lastCheckedAt?: string
   createdAt?: string
+  averageRating?: number
+  reviewCount?: number
+}
+
+export interface ApiStationStatusCheck {
+  id: number
+  stationId: number
+  status: ApiStatus
+  latencyMs?: number
+  checkedAt: string
+  errorMessage?: string
+}
+
+export interface ApiStationStatusSummary {
+  stationId: number
+  sampleSize: number
+  upCount: number
+  downCount: number
+  unknownCount: number
+  uptimeRate: number
+  averageLatencyMs?: number
+  fastestLatencyMs?: number
+  slowestLatencyMs?: number
+  firstCheckedAt?: string
+  lastCheckedAt?: string
+  longestFailureStreak: number
+  currentStatus: ApiStatus
+}
+
+export type ApiStationHealthLevel = 'healthy' | 'degraded' | 'down' | 'unknown'
+
+export interface ApiStationHealth {
+  id: number
+  name: string
+  baseUrl: string
+  status: ApiStatus
+  latencyMs?: number
+  lastCheckedAt?: string
+  sampleSize: number
+  upCount: number
+  downCount: number
+  unknownCount: number
+  uptimeRate: number
+  averageLatencyMs?: number
+  longestFailureStreak: number
+  healthLevel: ApiStationHealthLevel
+}
+
+export interface ApiStationRecentFailure {
+  stationId: number
+  stationName: string
+  status: ApiStatus
+  checkedAt: string
+  errorMessage?: string
+}
+
+export interface ApiStationHealthDashboard {
+  generatedAt: string
+  stationCount: number
+  upCount: number
+  downCount: number
+  unknownCount: number
+  uptimeRate: number
+  averageLatencyMs?: number
+  stations: ApiStationHealth[]
+  recentFailures: ApiStationRecentFailure[]
+}
+
+export interface ApiStationHealthTrendBucket {
+  date: string
+  sampleSize: number
+  upCount: number
+  downCount: number
+  unknownCount: number
+  uptimeRate: number
+  averageLatencyMs?: number
+}
+
+export interface ApiStationIncident {
+  stationId: number
+  stationName: string
+  startedAt: string
+  endedAt?: string
+  durationMinutes: number
+  failureCount: number
+  latestErrorMessage?: string
+  resolved: boolean
+}
+
+export interface ApiStationHealthTrendResponse {
+  generatedAt: string
+  days: number
+  startAt: string
+  endAt: string
+  buckets: ApiStationHealthTrendBucket[]
+  incidents: ApiStationIncident[]
 }
 
 export type RefType = 'POST' | 'SKILL' | 'MCP' | 'API'
@@ -131,6 +233,16 @@ export interface ForumCategory {
   createdAt?: string
 }
 
+export interface ForumTagSummary {
+  tag: string
+  count: number
+}
+
+export interface ResourceTagSummary {
+  tag: string
+  count: number
+}
+
 export type ThreadStatus = 'NORMAL' | 'PINNED' | 'FEATURED' | 'LOCKED' | 'HIDDEN' | 'DELETED'
 export type ReplyStatus = 'NORMAL' | 'HIDDEN' | 'DELETED'
 
@@ -149,6 +261,9 @@ export interface ForumThread {
   reportCount: number
   lastReplyUserId?: number
   lastReplyAt?: string
+  acceptedReplyId?: number
+  acceptedReplyUserId?: number
+  acceptedAt?: string
   linkedRefType?: RefType
   linkedRefId?: number
   createdAt: string
@@ -173,8 +288,100 @@ export interface ForumReply {
 export interface ForumInteraction {
   liked: boolean
   favorited: boolean
+  subscribed: boolean
   likeCount: number
   favoriteCount: number
+  subscriberCount: number
+}
+
+export interface ForumSubscriptionSummary {
+  subscribedThreadCount: number
+  receivedSubscriberCount: number
+  unreadSubscribedThreadCount: number
+}
+
+export interface ForumThreadSubscriptionItem extends ForumThread {
+  subscriberCount: number
+  unreadReplyCount: number
+  unread: boolean
+  subscribedAt: string
+  lastReadAt?: string
+  url: string
+}
+
+export type ResourceFavoriteRefType = 'POST' | 'SKILL' | 'MCP' | 'API'
+
+export interface RelatedResource {
+  type: ResourceFavoriteRefType
+  id: number
+  title: string
+  description?: string
+  url: string
+  category?: string
+  tags?: string
+  score: number
+  reason: string
+}
+
+export interface ResourceFavoriteInteraction {
+  favorited: boolean
+  favoriteCount: number
+}
+
+export interface ResourceFavoriteItem {
+  id: number
+  refType: ResourceFavoriteRefType
+  refId: number
+  title: string
+  description?: string
+  url: string
+  category?: string
+  tags?: string
+  available: boolean
+  createdAt: string
+}
+
+export interface ResourceReview {
+  id: number
+  userId: number
+  refType: ResourceFavoriteRefType
+  refId: number
+  rating: number
+  content?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AccountResourceReviewItem {
+  id: number
+  refType: ResourceFavoriteRefType
+  refId: number
+  title: string
+  url: string
+  rating: number
+  content?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ResourceReviewSummary {
+  averageRating: number
+  reviewCount: number
+  myReview?: ResourceReview | null
+}
+
+export type NotificationType = 'THREAD_REPLY' | 'REPLY_REPLY' | 'THREAD_SUBSCRIPTION_REPLY'
+
+export interface UserNotification {
+  id: number
+  type: NotificationType
+  title: string
+  message: string
+  linkUrl: string
+  actorId?: number
+  read: boolean
+  createdAt: string
+  readAt?: string
 }
 
 export type ReportTargetType = 'POST' | 'REPLY' | 'COMMENT'
@@ -200,6 +407,21 @@ export interface ContentReport {
   updatedAt: string
 }
 
+export interface ContentReportTarget {
+  targetType: ReportTargetType
+  targetId: number
+  exists: boolean
+  status?: string
+  authorId?: number
+  authorName?: string
+  title?: string
+  content?: string
+  refType?: string
+  refId?: number
+  createdAt?: string
+  updatedAt?: string
+}
+
 export interface Page<T> {
   content: T[]
   number: number
@@ -218,4 +440,109 @@ export interface AdminOperationLog {
   targetId: number
   detail?: string
   createdAt: string
+}
+
+export interface AdminDashboard {
+  moderation: {
+    pendingComments: number
+    pendingSubmissions: number
+    pendingReports: number
+  }
+  content: {
+    posts: number
+    skills: number
+    mcps: number
+    apiStations: number
+  }
+  community: {
+    users: number
+    activeUsers: number
+    bannedUsers: number
+    threads: number
+    replies: number
+  }
+  apiStations: {
+    up: number
+    down: number
+    unknown: number
+  }
+}
+
+export type GlobalSearchType = 'POST' | 'SKILL' | 'MCP' | 'API' | 'FORUM_THREAD'
+
+export interface GlobalSearchItem {
+  type: GlobalSearchType
+  id: number
+  title: string
+  description?: string
+  url: string
+  category?: string
+  tags?: string
+  meta?: string
+  createdAt?: string
+}
+
+export interface GlobalSearchGroup {
+  type: GlobalSearchType
+  label: string
+  items: GlobalSearchItem[]
+}
+
+export interface GlobalSearchResponse {
+  query: string
+  totalCount: number
+  groups: GlobalSearchGroup[]
+}
+
+export interface PublicStats {
+  generatedAt: string
+  content: {
+    posts: number
+    skills: number
+    mcps: number
+    apiStations: number
+    totalResources: number
+  }
+  community: {
+    threads: number
+    replies: number
+    solvedThreads: number
+    totalViews: number
+    totalLikes: number
+    totalFavorites: number
+  }
+  apiHealth: {
+    total: number
+    up: number
+    down: number
+    unknown: number
+    uptimeRate: number
+    averageLatencyMs?: number
+  }
+  popularTags: Array<{
+    tag: string
+    count: number
+    url: string
+  }>
+  recentItems: Array<{
+    type: GlobalSearchType
+    title: string
+    description?: string
+    url: string
+    category?: string
+    tags?: string
+    createdAt: string
+    metric?: string
+  }>
+  hotThreads: Array<{
+    id: number
+    title: string
+    url: string
+    tags?: string
+    viewCount: number
+    replyCount: number
+    likeCount: number
+    lastActivityAt: string
+    solved: boolean
+  }>
 }

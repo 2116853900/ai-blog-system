@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { publicApi } from '../api'
-import type { Mcp } from '../api/types'
+import type { Mcp, ResourceTagSummary } from '../api/types'
 import SearchBar from '../components/SearchBar.vue'
 import TagList from '../components/TagList.vue'
+import CommunityRatingBadge from '../components/CommunityRatingBadge.vue'
 import StarRating from '../components/StarRating.vue'
 import StateBlock from '../components/StateBlock.vue'
 import Skeleton from '../components/Skeleton.vue'
 import DetailDrawer from '../components/DetailDrawer.vue'
 import CommentSection from '../components/CommentSection.vue'
 import CopyButton from '../components/CopyButton.vue'
+import ResourceFavoriteButton from '../components/ResourceFavoriteButton.vue'
+import ResourceReviewPanel from '../components/ResourceReviewPanel.vue'
 import { useListView } from '../composables/useListView'
 
 const {
@@ -18,8 +21,19 @@ const {
 } = useListView<Mcp>(publicApi.mcps)
 
 const selected = ref<Mcp | null>(null)
+const popularTags = ref<ResourceTagSummary[]>([])
 function open(m: Mcp) { selected.value = m }
 function close() { selected.value = null }
+
+async function loadPopularTags() {
+  try {
+    popularTags.value = await publicApi.mcpPopularTags({ limit: 12 })
+  } catch {
+    popularTags.value = []
+  }
+}
+
+onMounted(loadPopularTags)
 </script>
 
 <template>
@@ -43,6 +57,20 @@ function close() { selected.value = null }
       >{{ c }}</button>
     </div>
 
+    <div v-if="popularTags.length" class="popular-tags" role="group" aria-label="热门标签">
+      <span class="popular-label mono">热门标签</span>
+      <button
+        v-for="tag in popularTags"
+        :key="tag.tag"
+        class="tag-chip"
+        :class="{ active: activeTag === tag.tag }"
+        :aria-pressed="activeTag === tag.tag"
+        @click="toggleTag(tag.tag)"
+      >
+        {{ tag.tag }}<span>{{ tag.count }}</span>
+      </button>
+    </div>
+
     <StateBlock :loading="loading" :empty="isEmpty" empty-text="没有匹配的 MCP，换个关键词试试。" class="block-area">
       <template #skeleton>
         <div class="grid">
@@ -63,7 +91,10 @@ function close() { selected.value = null }
         >
           <div class="item-head">
             <h3 class="mono">{{ m.name }}</h3>
-            <StarRating :level="m.recommendLevel" />
+            <div class="item-ratings">
+              <StarRating :level="m.recommendLevel" />
+              <CommunityRatingBadge :average-rating="m.averageRating" :review-count="m.reviewCount" />
+            </div>
           </div>
           <p class="muted desc">{{ m.description }}</p>
           <div v-if="m.installCmd" class="codeline" @click.stop>
@@ -98,6 +129,10 @@ function close() { selected.value = null }
         <a v-if="selected.repoUrl" :href="selected.repoUrl" target="_blank" rel="noopener" class="btn btn-primary d-link">
           查看仓库 ↗
         </a>
+        <div class="resource-actions">
+          <ResourceFavoriteButton ref-type="MCP" :ref-id="selected.id" />
+          <ResourceReviewPanel ref-type="MCP" :ref-id="selected.id" />
+        </div>
         <hr class="d-sep" />
         <CommentSection ref-type="MCP" :ref-id="selected.id" />
       </template>
@@ -110,10 +145,20 @@ function close() { selected.value = null }
 .page-head { margin-bottom: 16px; }
 .block-area { margin-top: 20px; }
 .chips { margin-top: 14px; }
+.popular-tags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.popular-label { color: var(--text-dim); font-size: 12px; }
+.tag-chip {
+  border: 1px solid var(--border); background: var(--bg-soft); color: var(--text-soft);
+  border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 12px; padding: 5px 10px;
+}
+.tag-chip span { color: var(--text-dim); font-family: var(--font-mono); font-size: 11px; }
+.tag-chip:hover, .tag-chip.active { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
 .item {
   padding: 20px; display: flex; flex-direction: column; gap: 10px;
   text-align: left; width: 100%; cursor: pointer; font: inherit; color: inherit;
 }
+.item-ratings { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
 .item-head { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
 .item-head h3 { margin: 0; font-size: 16px; font-weight: 700; }
 .desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -125,5 +170,6 @@ function close() { selected.value = null }
 .d-field { margin-bottom: 16px; }
 .d-label { display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; }
 .d-link { margin-top: 16px; }
+.resource-actions { display: grid; gap: 18px; margin-top: 20px; }
 .d-sep { border: none; border-top: 1px dashed var(--border-strong); margin: 24px 0; }
 </style>

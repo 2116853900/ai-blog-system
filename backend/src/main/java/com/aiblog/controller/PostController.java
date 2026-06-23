@@ -1,7 +1,15 @@
 package com.aiblog.controller;
 
+import com.aiblog.cache.PublicContentCacheService;
+import com.aiblog.dto.ResourceTagSummaryResponse;
 import com.aiblog.entity.Post;
+import com.aiblog.entity.ResourceReview;
+import com.aiblog.service.ResourceReviewBatchAggregator;
 import com.aiblog.repository.PostRepository;
+import com.aiblog.service.ResourceTagService;
+import com.aiblog.service.SearchSpecs;
+import com.fasterxml.jackson.core.type.TypeReference;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,25 +20,63 @@ import java.util.List;
 public class PostController {
 
     private final PostRepository postRepo;
+    private final PublicContentCacheService cacheService;
+    private final ResourceTagService tagService;
+    private final ResourceReviewBatchAggregator reviewBatch;
 
-    public PostController(PostRepository postRepo) {
+    public PostController(PostRepository postRepo,
+                          PublicContentCacheService cacheService,
+                          ResourceTagService tagService,
+                          ResourceReviewBatchAggregator reviewBatch) {
         this.postRepo = postRepo;
+        this.cacheService = cacheService;
+        this.tagService = tagService;
+        this.reviewBatch = reviewBatch;
     }
 
     /** 已发布教程列表（不含正文，减小体积） */
     @GetMapping
-    public List<Post> list() {
-        List<Post> posts = postRepo.findByPublishedTrueOrderByCreatedAtDesc();
-        posts.forEach(p -> p.setBodyMarkdown(null));
+    public List<Post> list(@RequestParam(required = false) String q,
+                           @RequestParam(required = false) String tag,
+                           @RequestParam(required = false) String category) {
+        List<Post> posts = cacheService.publicContent(
+                cacheService.postsListKey(q, tag, category),
+                new TypeReference<List<Post>>() {},
+                () -> {
+                    List<Post> loaded;
+                    if (hasText(q) || hasText(tag) || hasText(category)) {
+                        var spec = SearchSpecs.<Post>build(q, tag, category, List.of("title", "summary", "tags", "category"))
+                                .and((root, query, cb) -> cb.isTrue(root.get("published")));
+                        loaded = postRepo.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
+                    } else {
+                        loaded = postRepo.findByPublishedTrueOrderByCreatedAtDesc();
+                    }
+                    loaded.forEach(p -> p.setBodyMarkdown(null));
+                    return loaded;
+                });
+        reviewBatch.apply(ResourceReview.RefType.POST, posts);
         return posts;
+    }
+
+    @GetMapping("/tags/popular")
+    public List<ResourceTagSummaryResponse> popularTags(@RequestParam(defaultValue = "20") int limit) {
+        return cacheService.publicContent(
+                cacheService.postsPopularTagsKey(limit),
+                new TypeReference<List<ResourceTagSummaryResponse>>() {},
+                () -> tagService.postPopularTags(limit));
     }
 
     /** 教程详情（仅已发布） */
     @GetMapping("/{slug}")
     public ResponseEntity<Post> detail(@PathVariable String slug) {
-        return postRepo.findBySlug(slug)
-                .filter(Post::isPublished)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        Post post = cacheService.publicContent(
+                cacheService.postDetailKey(slug),
+                Post.class,
+                () -> postRepo.findBySlug(slug).filter(Post::isPublished).orElse(null));
+        return post == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(post);
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

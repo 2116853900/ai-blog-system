@@ -13,4 +13,5 @@ public interface ForumUserRepository extends JpaRepository<ForumUser, Long>, Jpa
     List<ForumUser> findByUsernameContainingIgnoreCaseOrNicknameContainingIgnoreCase(String username, String nickname);
     boolean existsByUsername(String username);
     boolean existsByEmail(String email);
+    long countByStatus(ForumUser.Status status);
 }

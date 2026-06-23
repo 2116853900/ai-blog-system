@@ -34,7 +34,6 @@ public class ForumInteractionController {
     public ResponseEntity<?> like(@PathVariable Long threadId, Authentication auth) {
         Long userId = requireActiveUser(auth);
         if (userId == null) return unauthorized();
-        if (!userService.isActiveForumUser(userId)) return banned("账号已被封禁，暂不能点赞");
         try {
             ForumInteractionResponse response = interactionService.like(threadId, userId);
             return ResponseEntity.ok(response);
@@ -47,7 +46,6 @@ public class ForumInteractionController {
     public ResponseEntity<?> unlike(@PathVariable Long threadId, Authentication auth) {
         Long userId = requireActiveUser(auth);
         if (userId == null) return unauthorized();
-        if (!userService.isActiveForumUser(userId)) return banned("账号已被封禁，暂不能取消点赞");
         try {
             ForumInteractionResponse response = interactionService.unlike(threadId, userId);
             return ResponseEntity.ok(response);
@@ -60,7 +58,6 @@ public class ForumInteractionController {
     public ResponseEntity<?> favorite(@PathVariable Long threadId, Authentication auth) {
         Long userId = requireActiveUser(auth);
         if (userId == null) return unauthorized();
-        if (!userService.isActiveForumUser(userId)) return banned("账号已被封禁，暂不能收藏");
         try {
             ForumInteractionResponse response = interactionService.favorite(threadId, userId);
             return ResponseEntity.ok(response);
@@ -73,9 +70,44 @@ public class ForumInteractionController {
     public ResponseEntity<?> unfavorite(@PathVariable Long threadId, Authentication auth) {
         Long userId = requireActiveUser(auth);
         if (userId == null) return unauthorized();
-        if (!userService.isActiveForumUser(userId)) return banned("账号已被封禁，暂不能取消收藏");
         try {
             ForumInteractionResponse response = interactionService.unfavorite(threadId, userId);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/subscription")
+    public ResponseEntity<?> subscribe(@PathVariable Long threadId, Authentication auth) {
+        Long userId = requireActiveUser(auth);
+        if (userId == null) return unauthorized();
+        try {
+            ForumInteractionResponse response = interactionService.subscribe(threadId, userId);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/subscription")
+    public ResponseEntity<?> unsubscribe(@PathVariable Long threadId, Authentication auth) {
+        Long userId = requireActiveUser(auth);
+        if (userId == null) return unauthorized();
+        try {
+            ForumInteractionResponse response = interactionService.unsubscribe(threadId, userId);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/subscription/read")
+    public ResponseEntity<?> markSubscriptionRead(@PathVariable Long threadId, Authentication auth) {
+        Long userId = requireActiveUser(auth);
+        if (userId == null) return unauthorized();
+        try {
+            ForumInteractionResponse response = interactionService.markSubscriptionRead(threadId, userId);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
@@ -93,9 +125,5 @@ public class ForumInteractionController {
 
     private ResponseEntity<Map<String, String>> unauthorized() {
         return ResponseEntity.status(401).body(Map.of("message", "请先登录"));
-    }
-
-    private ResponseEntity<Map<String, String>> banned(String message) {
-        return ResponseEntity.status(403).body(Map.of("message", message));
     }
 }

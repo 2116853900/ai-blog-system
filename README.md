@@ -5,7 +5,7 @@
 - 前端：Vue 3 + Vite + TypeScript（暗色模式、响应式、Markdown 渲染）
 - 后端：Spring Boot 3 + Spring Security + JWT
 - 数据库：MySQL 8
-- 功能：全站搜索与标签筛选、公益 API 站点在线状态定时检测、访客评论/投稿、论坛发帖/回帖、管理员后台审核与内容管理
+- 功能：全站搜索与标签筛选、跨资源延伸推荐、公益 API 站点在线状态定时检测、访客评论/投稿、评论举报、资源关联论坛讨论、论坛发帖/回帖、管理员后台总览、审核与内容管理
 
 ## 环境要求
 
@@ -34,22 +34,35 @@
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
+| GET  | `/api/search?q=&limit=` | 全站搜索：教程、Skill、MCP、API 站点、论坛帖子 |
+| GET  | `/api/related-resources?refType=&refId=&limit=` | 根据标签、分类和关键词推荐相关教程、Skill、MCP、API 站点 |
 | GET  | `/api/posts` `/api/posts/{slug}` | 教程列表 / 详情 |
-| GET  | `/api/skills?q=&tag=&category=` | Skill 列表（搜索/筛选）|
-| GET  | `/api/mcps?q=&tag=&category=` | MCP 列表 |
-| GET  | `/api/api-stations?q=&tag=` | 公益 API 站点列表 |
+| GET  | `/api/skills?q=&tag=&category=` `/api/skills/{id}` | Skill 列表 / 详情 |
+| GET  | `/api/mcps?q=&tag=&category=` `/api/mcps/{id}` | MCP 列表 / 详情 |
+| GET  | `/api/api-stations?q=&tag=` `/api/api-stations/{id}` | 公益 API 站点列表 / 详情 |
+| GET  | `/api/api-stations/{id}/checks?limit=` | 公益 API 站点最近检测历史 |
+| GET  | `/api/api-stations/{id}/checks/summary?limit=` | 公益 API 站点最近检测可用率、延迟与故障摘要 |
+| GET  | `/api/api-stations/health-dashboard?sampleLimit=&failureLimit=` | 公益 API 站点健康大盘：整体可用率、站点健康排行与最近故障 |
+| GET  | `/api/api-stations/health-trends?days=&incidentLimit=` | 公益 API 站点趋势：按天聚合可用率、延迟与故障事件流 |
 | GET  | `/api/comments?type=&refId=` | 某内容下已审核评论 |
 | POST | `/api/comments` | 提交评论（待审核）|
 | POST | `/api/submissions` | 投稿（待审核）|
-| GET/POST/PUT/DELETE | `/api/forum/**` | 论坛板块、帖子、回复；帖子列表支持 `q` 关键词搜索 |
+| GET  | `/api/resource-favorites/{type}/{id}` | 资源收藏状态与收藏数 |
+| GET/POST/DELETE | `/api/account/resource-favorites/**` | 登录用户的教程、Skill、MCP、API 收藏 |
+| GET/POST/DELETE | `/api/resource-reviews/**` `/api/account/resource-reviews/**` | 资源评分、评价列表与登录用户评价管理 |
+| GET/POST/PUT/DELETE | `/api/forum/**` | 论坛板块、帖子、回复；帖子列表支持 `q`、`tag`、`unanswered`、`sort`，并提供 `/api/forum/threads/tags/popular` 热门标签 |
+| GET  | `/api/users/{id}` `/api/users/{id}/threads` `/api/users/{id}/replies` | 用户公开资料 / 公开帖子 / 公开回复 |
+| GET/POST | `/api/account/notifications/**` | 登录用户通知列表、未读数与已读操作 |
+| GET/POST/DELETE | `/api/forum/threads/{id}/subscription` `/api/account/subscriptions` | 关注论坛帖子、取消关注、查看关注列表；支持未读关注筛选、关注/被关注统计，关注帖子有新回复时接收通知 |
 | POST | `/api/auth/register` | 论坛用户注册 |
 | GET  | `/api/auth/me` | 当前登录用户信息 |
 | PUT  | `/api/auth/profile` | 修改论坛用户昵称、头像和简介 |
 | PUT  | `/api/auth/password` | 修改论坛用户密码 |
 | POST | `/api/auth/login` | 管理员登录，返回 JWT |
+| GET  | `/api/admin/dashboard` | 后台总览：待审核事项、内容规模、社区与 API 状态统计 |
 | *    | `/api/admin/**` | 后台接口（需 `Authorization: Bearer <token>`）|
 
-公益 API 站点状态由 `StatusCheckService` 每 10 分钟自动检测一次（`app.status-check.cron` 可配），也可在后台手动触发。
+公益 API 站点状态由 `StatusCheckService` 每 10 分钟自动检测一次（`app.status-check.cron` 可配），也可在后台手动触发。每次检测都会写入历史记录，前台详情页会展示最近检测结果和可用性分析。
 
 ## 前端启动
 
@@ -61,16 +74,19 @@ npm run dev
 
 前端运行在 `http://localhost:5173`，已通过 Vite 代理把 `/api` 转发到后端 `:8080`。
 
-- 公开站点：`/`、`/skills`、`/mcps`、`/tutorials`、`/api-stations`、`/forum`、`/submit`、`/login`、`/account`
-- 后台：`/admin/login` 登录后进入 `/admin`
+- 公开站点：`/`、`/skills`、`/mcps`、`/tutorials`、`/api-stations`、`/api-stations/health`、`/forum`、`/users/:id`、`/submit`、`/login`、`/account`
+- 后台：`/admin/login` 登录后进入 `/admin` 总览，可继续管理教程、Skill、MCP、API 站点、评论、投稿、用户和举报
 
 ## 端到端验证
 
 1. 启动后端与前端。
 2. 浏览首页四大板块、搜索筛选、暗色切换、移动端布局。
 3. 打开某教程，提交一条评论。
-4. `/submit` 提交一条投稿。
-5. 登录后台 `/admin/login`：
+4. 登录后举报一条可见评论，确认 `/admin/reports` 中出现对应 COMMENT 举报记录。
+5. 在教程、Skill、MCP 或 API 详情页点击「发起讨论」发布关联帖子，回到详情页确认讨论卡片出现。
+6. 在教程、Skill、MCP 或 API 详情页确认「延伸阅读」根据共同标签/分类展示相关资源。
+7. `/submit` 提交一条投稿。
+8. 登录后台 `/admin/login`：
    - 新建教程并发布 → 前台 `/tutorials` 可见。
    - 评论审核：通过刚才的评论 → 教程页可见。
    - 投稿审核：通过投稿 → 对应板块出现新条目。
@@ -78,7 +94,9 @@ npm run dev
 
 ## 生产构建
 
-- 前端：`npm run build`（产物在 `frontend/dist`）
-- 后端：`mvn clean package`（产物 `backend/target/*.jar`，`java -jar` 运行）
+- 前端类型检查：`npm run typecheck`
+- 前端构建：`npm run build`（先执行类型检查，再输出产物到 `frontend/dist`）
+- 后端测试：`mvn test`
+- 后端打包：`mvn clean package`（产物 `backend/target/*.jar`，`java -jar` 运行）
 
 > 注意：公益 API 中转站内容仅供学习交流，请遵守各站点使用规则。示例数据中的站点地址为占位，请在后台替换为真实地址。

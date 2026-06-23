@@ -4,8 +4,10 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "skill")
-public class Skill {
+@Table(name = "skill", indexes = {
+        @Index(name = "idx_skill_created", columnList = "createdAt")
+})
+public class Skill implements com.aiblog.service.ResourceReviewBatchAggregator.ReviewRatingTarget {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -30,6 +32,12 @@ public class Skill {
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
+    @Transient
+    private double averageRating;
+
+    @Transient
+    private long reviewCount;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getName() { return name; }
@@ -46,4 +54,13 @@ public class Skill {
     public void setRecommendLevel(Integer recommendLevel) { this.recommendLevel = recommendLevel; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    public double getAverageRating() { return averageRating; }
+    public void setAverageRating(double averageRating) { this.averageRating = averageRating; }
+
+    public long getReviewCount() { return reviewCount; }
+    public void setReviewCount(long reviewCount) { this.reviewCount = reviewCount; }
+
+    @Override
+    public Long getReviewRefId() { return id; }
 }

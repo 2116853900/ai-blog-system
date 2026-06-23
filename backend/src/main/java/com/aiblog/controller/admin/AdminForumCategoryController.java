@@ -1,5 +1,6 @@
 package com.aiblog.controller.admin;
 
+import com.aiblog.cache.PublicContentCacheService;
 import com.aiblog.entity.ForumCategory;
 import com.aiblog.repository.ForumCategoryRepository;
 import org.springframework.data.domain.Sort;
@@ -14,9 +15,11 @@ import java.util.Map;
 public class AdminForumCategoryController {
 
     private final ForumCategoryRepository repo;
+    private final PublicContentCacheService cacheService;
 
-    public AdminForumCategoryController(ForumCategoryRepository repo) {
+    public AdminForumCategoryController(ForumCategoryRepository repo, PublicContentCacheService cacheService) {
         this.repo = repo;
+        this.cacheService = cacheService;
     }
 
     @GetMapping
@@ -33,7 +36,9 @@ public class AdminForumCategoryController {
             return ResponseEntity.badRequest().body(Map.of("message", "slug 已存在"));
         }
         body.setId(null);
-        return ResponseEntity.ok(repo.save(body));
+        ForumCategory saved = repo.save(body);
+        cacheService.evictForumCategories();
+        return ResponseEntity.ok(saved);
     }
 
     @PutMapping("/{id}")
@@ -46,13 +51,16 @@ public class AdminForumCategoryController {
             c.setSortOrder(body.getSortOrder());
             c.setParentId(body.getParentId());
             c.setActive(body.isActive());
-            return ResponseEntity.ok(repo.save(c));
+            ForumCategory saved = repo.save(c);
+            cacheService.evictForumCategories();
+            return ResponseEntity.ok(saved);
         }).orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         repo.deleteById(id);
+        cacheService.evictForumCategories();
         return ResponseEntity.noContent().build();
     }
 }

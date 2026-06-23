@@ -1,15 +1,63 @@
 package com.aiblog.repository;
 
 import com.aiblog.entity.ForumReply;
+import com.aiblog.entity.ForumThread;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.Collection;
 
 public interface ForumReplyRepository extends JpaRepository<ForumReply, Long>, JpaSpecificationExecutor<ForumReply> {
     Page<ForumReply> findByThreadIdAndStatusOrderByFloorNumberAsc(Long threadId, ForumReply.ReplyStatus status, Pageable pageable);
     Page<ForumReply> findByAuthorIdAndStatusIn(Long authorId, Collection<ForumReply.ReplyStatus> statuses, Pageable pageable);
-    int countByThreadIdAndStatus(Long threadId, ForumReply.ReplyStatus status);
+    @Query(value = """
+            select r from ForumReply r
+            where r.authorId = :authorId
+              and r.status in :replyStatuses
+              and exists (
+                  select 1 from ForumThread t
+                  where t.id = r.threadId
+                    and t.status in :threadStatuses
+              )
+            """, countQuery = """
+            select count(r) from ForumReply r
+            where r.authorId = :authorId
+              and r.status in :replyStatuses
+              and exists (
+                  select 1 from ForumThread t
+                  where t.id = r.threadId
+                    and t.status in :threadStatuses
+              )
+            """)
+    Page<ForumReply> findVisibleByAuthorId(
+            @Param("authorId") Long authorId,
+            @Param("replyStatuses") Collection<ForumReply.ReplyStatus> replyStatuses,
+            @Param("threadStatuses") Collection<ForumThread.ThreadStatus> threadStatuses,
+            Pageable pageable);
+
+    @Query("select coalesce(max(r.floorNumber), 0) from ForumReply r where r.threadId = :threadId")
+    int findMaxFloorNumberByThreadId(@Param("threadId") Long threadId);
+
+    @Query("""
+            select count(r) from ForumReply r
+            where r.threadId = :threadId
+              and r.status = :status
+              and r.createdAt > :after
+              and r.authorId <> :userId
+            """)
+    long countUnreadRepliesAfter(
+            @Param("threadId") Long threadId,
+            @Param("status") ForumReply.ReplyStatus status,
+            @Param("after") Instant after,
+            @Param("userId") Long userId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update ForumReply r set r.reportCount = r.reportCount + 1 where r.id = :id")
+    int incrementReportCount(@Param("id") Long id);
 }

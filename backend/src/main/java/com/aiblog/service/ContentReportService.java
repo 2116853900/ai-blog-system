@@ -1,6 +1,7 @@
 package com.aiblog.service;
 
 import com.aiblog.dto.ContentReportRequest;
+import com.aiblog.dto.ContentReportTargetResponse;
 import com.aiblog.dto.ReportReviewRequest;
 import com.aiblog.entity.AdminOperationLog;
 import com.aiblog.entity.Comment;
@@ -104,6 +105,15 @@ public class ContentReportService {
         return reportRepo.findById(id);
     }
 
+    public List<AdminOperationLog> adminOperationLogs(Long id) {
+        return operationLogRepo.findByTargetTypeAndTargetIdOrderByCreatedAtDesc("CONTENT_REPORT", id);
+    }
+
+    public Optional<ContentReportTargetResponse> currentTarget(Long reportId) {
+        return reportRepo.findById(reportId)
+                .map(report -> currentTarget(report.getTargetType(), report.getTargetId()));
+    }
+
     public Page<ContentReport> submittedByUser(Long userId, Pageable pageable) {
         return reportRepo.findByReporterIdOrderByCreatedAtDesc(userId, pageable);
     }
@@ -114,45 +124,61 @@ public class ContentReportService {
 
     @Transactional
     public Optional<ContentReport> approve(Long id, ReportReviewRequest req, String reviewerUsername) {
-        return review(id, ContentReport.ReportStatus.APPROVED, "APPROVED", req, reviewerUsername)
+        return reportRepo.findById(id)
                 .map(report -> {
-                    if (req != null && req.isHideContent()) {
-                        hideReportedContent(report, reviewerUsername, req.getReviewNote());
+                    if (!isPending(report)) {
+                        return report;
                     }
-                    if (req != null && req.isBanTargetAuthor() && report.getTargetAuthorId() != null) {
+                    ContentReport reviewed = applyReview(
+                            report, ContentReport.ReportStatus.APPROVED, "APPROVED", req, reviewerUsername);
+                    if (req != null && req.isHideContent()) {
+                        hideReportedContent(reviewed, reviewerUsername, req.getReviewNote());
+                    }
+                    if (req != null && req.isBanTargetAuthor() && reviewed.getTargetAuthorId() != null) {
+                        String banReason = clean(req.getBanReason());
                         userService.ban(
-                                report.getTargetAuthorId(),
-                                clean(req.getBanReason()) == null ? "举报审核通过" : clean(req.getBanReason()),
+                                reviewed.getTargetAuthorId(),
+                                banReason == null ? "举报审核通过" : banReason,
                                 req.getBanEndTime(),
                                 reviewerUsername);
                     }
-                    return report;
+                    return reviewed;
                 });
     }
 
     @Transactional
     public Optional<ContentReport> reject(Long id, ReportReviewRequest req, String reviewerUsername) {
-        return review(id, ContentReport.ReportStatus.REJECTED, "REJECTED", req, reviewerUsername);
+        return reportRepo.findById(id)
+                .map(report -> isPending(report)
+                        ? applyReview(report, ContentReport.ReportStatus.REJECTED, "REJECTED", req, reviewerUsername)
+                        : report);
     }
 
     @Transactional
     public Optional<ContentReport> close(Long id, ReportReviewRequest req, String reviewerUsername) {
-        return review(id, ContentReport.ReportStatus.CLOSED, "CLOSED", req, reviewerUsername);
+        return reportRepo.findById(id)
+                .map(report -> isPending(report)
+                        ? applyReview(report, ContentReport.ReportStatus.CLOSED, "CLOSED", req, reviewerUsername)
+                        : report);
     }
 
-    private Optional<ContentReport> review(Long id,
-                                           ContentReport.ReportStatus status,
-                                           String result,
-                                           ReportReviewRequest req,
-                                           String reviewerUsername) {
-        return reportRepo.findById(id).map(report -> {
-            report.setStatus(status);
-            report.setReviewResult(result);
-            report.setReviewNote(req == null ? null : clean(req.getReviewNote()));
-            report.setReviewerUsername(reviewerUsername);
-            report.setReviewedAt(Instant.now());
-            return reportRepo.save(report);
-        });
+    private ContentReport applyReview(ContentReport report,
+                                      ContentReport.ReportStatus status,
+                                      String result,
+                                      ReportReviewRequest req,
+                                      String reviewerUsername) {
+        report.setStatus(status);
+        report.setReviewResult(result);
+        report.setReviewNote(req == null ? null : clean(req.getReviewNote()));
+        report.setReviewerUsername(reviewerUsername);
+        report.setReviewedAt(Instant.now());
+        ContentReport saved = reportRepo.save(report);
+        recordOperation(reviewerUsername, actionFor(status), saved.getId(), saved.getReviewNote(), "CONTENT_REPORT");
+        return saved;
+    }
+
+    private boolean isPending(ContentReport report) {
+        return report.getStatus() == ContentReport.ReportStatus.PENDING;
     }
 
     private TargetSnapshot snapshot(ContentReport.TargetType targetType, Long targetId) {
@@ -171,17 +197,74 @@ public class ContentReportService {
         };
     }
 
+    private ContentReportTargetResponse currentTarget(ContentReport.TargetType targetType, Long targetId) {
+        return switch (targetType) {
+            case POST -> currentPostTarget(targetType, targetId);
+            case REPLY -> currentReplyTarget(targetType, targetId);
+            case COMMENT -> currentCommentTarget(targetType, targetId);
+        };
+    }
+
+    private ContentReportTargetResponse currentPostTarget(ContentReport.TargetType targetType, Long targetId) {
+        ContentReportTargetResponse response = baseTarget(targetType, targetId);
+        threadRepo.findById(targetId).ifPresent(thread -> {
+            response.setExists(true);
+            response.setStatus(thread.getStatus().name());
+            response.setAuthorId(thread.getAuthorId());
+            response.setTitle(thread.getTitle());
+            response.setContent(thread.getContentMarkdown());
+            response.setRefType(thread.getLinkedRefType());
+            response.setRefId(thread.getLinkedRefId());
+            response.setCreatedAt(thread.getCreatedAt());
+            response.setUpdatedAt(thread.getUpdatedAt());
+        });
+        return response;
+    }
+
+    private ContentReportTargetResponse currentReplyTarget(ContentReport.TargetType targetType, Long targetId) {
+        ContentReportTargetResponse response = baseTarget(targetType, targetId);
+        replyRepo.findById(targetId).ifPresent(reply -> {
+            response.setExists(true);
+            response.setStatus(reply.getStatus().name());
+            response.setAuthorId(reply.getAuthorId());
+            response.setTitle("回复 #" + reply.getId());
+            response.setContent(reply.getContentMarkdown());
+            response.setRefType("FORUM_THREAD");
+            response.setRefId(reply.getThreadId());
+            response.setCreatedAt(reply.getCreatedAt());
+            response.setUpdatedAt(reply.getUpdatedAt());
+        });
+        return response;
+    }
+
+    private ContentReportTargetResponse currentCommentTarget(ContentReport.TargetType targetType, Long targetId) {
+        ContentReportTargetResponse response = baseTarget(targetType, targetId);
+        commentRepo.findById(targetId).ifPresent(comment -> {
+            response.setExists(true);
+            response.setStatus(comment.getStatus().name());
+            response.setAuthorName(comment.getAuthor());
+            response.setTitle("评论 #" + comment.getId());
+            response.setContent(comment.getContent());
+            response.setRefType(comment.getRefType().name());
+            response.setRefId(comment.getRefId());
+            response.setCreatedAt(comment.getCreatedAt());
+        });
+        return response;
+    }
+
+    private ContentReportTargetResponse baseTarget(ContentReport.TargetType targetType, Long targetId) {
+        ContentReportTargetResponse response = new ContentReportTargetResponse();
+        response.setTargetType(targetType);
+        response.setTargetId(targetId);
+        response.setExists(false);
+        return response;
+    }
+
     private void incrementReportCount(ContentReport.TargetType targetType, Long targetId) {
         if (targetType == ContentReport.TargetType.POST) {
-            threadRepo.findById(targetId).ifPresent(thread -> {
-                thread.setReportCount(thread.getReportCount() + 1);
-                threadRepo.save(thread);
-            });
+            threadRepo.incrementReportCount(targetId);
         } else if (targetType == ContentReport.TargetType.REPLY) {
-            replyRepo.findById(targetId).ifPresent(reply -> {
-                reply.setReportCount(reply.getReportCount() + 1);
-                replyRepo.save(reply);
-            });
+            replyRepo.incrementReportCount(targetId);
         }
     }
 
@@ -201,13 +284,26 @@ public class ContentReportService {
     }
 
     private void recordOperation(String operatorUsername, String action, Long targetId, String detail) {
+        recordOperation(operatorUsername, action, targetId, detail, "COMMENT");
+    }
+
+    private void recordOperation(String operatorUsername, String action, Long targetId, String detail, String targetType) {
         AdminOperationLog log = new AdminOperationLog();
         log.setOperatorUsername(operatorUsername == null ? "unknown" : operatorUsername);
         log.setAction(action);
-        log.setTargetType("COMMENT");
+        log.setTargetType(targetType);
         log.setTargetId(targetId);
         log.setDetail(truncate(detail, 1000));
         operationLogRepo.save(log);
+    }
+
+    private String actionFor(ContentReport.ReportStatus status) {
+        return switch (status) {
+            case APPROVED -> "APPROVE_CONTENT_REPORT";
+            case REJECTED -> "REJECT_CONTENT_REPORT";
+            case CLOSED -> "CLOSE_CONTENT_REPORT";
+            case PENDING -> "REVIEW_CONTENT_REPORT";
+        };
     }
 
     private String clean(String value) {

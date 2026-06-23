@@ -4,9 +4,12 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "forum_reply", indexes = {
+@Table(name = "forum_reply",
+        uniqueConstraints = @UniqueConstraint(name = "uk_forum_reply_thread_floor", columnNames = {"threadId", "floorNumber"}),
+        indexes = {
     @Index(name = "idx_thread_floor", columnList = "threadId,floorNumber"),
-    @Index(name = "idx_reply_author", columnList = "authorId")
+    @Index(name = "idx_reply_author", columnList = "authorId"),
+    @Index(name = "idx_reply_author_status_created", columnList = "authorId,status,createdAt")
 })
 public class ForumReply {
 
