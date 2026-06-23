@@ -1,5 +1,6 @@
 package com.aiblog.controller;
 
+import com.aiblog.dto.AccountResourceReviewItemResponse;
 import com.aiblog.dto.ResourceReviewRequest;
 import com.aiblog.entity.ForumUser;
 import com.aiblog.entity.ResourceReview;
@@ -58,6 +59,14 @@ public class ResourceReviewController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
+    }
+
+    @GetMapping("/api/account/resource-reviews")
+    public Page<AccountResourceReviewItemResponse> listMine(Authentication auth,
+                                                            @RequestParam(defaultValue = "0") int page,
+                                                            @RequestParam(defaultValue = "20") int size) {
+        Long userId = requireForumUserId(auth);
+        return reviewService.listMine(userId, PageRequest.of(Math.max(0, page), Math.min(50, Math.max(1, size))));
     }
 
     @PostMapping("/api/account/resource-reviews/{refType}/{refId}")

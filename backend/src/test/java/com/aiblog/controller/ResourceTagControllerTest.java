@@ -26,7 +26,7 @@ class ResourceTagControllerTest {
         ResourceTagService tagService = mock(ResourceTagService.class);
         List<ResourceTagSummaryResponse> tags = List.of(new ResourceTagSummaryResponse("Prompt", 3));
         when(tagService.skillPopularTags(12)).thenReturn(tags);
-        SkillController controller = new SkillController(mock(SkillRepository.class), cacheService(), tagService);
+        SkillController controller = new SkillController(mock(SkillRepository.class), cacheService(), tagService, mock(com.aiblog.service.ResourceReviewBatchAggregator.class));
 
         List<ResourceTagSummaryResponse> response = controller.popularTags(12);
 
@@ -39,7 +39,7 @@ class ResourceTagControllerTest {
         ResourceTagService tagService = mock(ResourceTagService.class);
         List<ResourceTagSummaryResponse> tags = List.of(new ResourceTagSummaryResponse("server", 2));
         when(tagService.mcpPopularTags(8)).thenReturn(tags);
-        McpController controller = new McpController(mock(McpRepository.class), cacheService(), tagService);
+        McpController controller = new McpController(mock(McpRepository.class), cacheService(), tagService, mock(com.aiblog.service.ResourceReviewBatchAggregator.class));
 
         List<ResourceTagSummaryResponse> response = controller.popularTags(8);
 
@@ -56,7 +56,8 @@ class ResourceTagControllerTest {
                 mock(ApiStationRepository.class),
                 mock(ApiStationStatusHistoryService.class),
                 cacheService(),
-                tagService
+                tagService,
+                mock(com.aiblog.service.ResourceReviewBatchAggregator.class)
         );
 
         List<ResourceTagSummaryResponse> response = controller.popularTags(6);

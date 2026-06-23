@@ -22,6 +22,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 @Service
@@ -34,6 +36,7 @@ public class HybridCacheService {
     private final StringRedisTemplate redisTemplate;
     private final MeterRegistry meterRegistry;
     private final Map<String, LocalEntry> localCache = new ConcurrentHashMap<>();
+    private final Map<String, LoadLock> loadLocks = new ConcurrentHashMap<>();
 
     @Autowired
     public HybridCacheService(CacheProperties properties,
@@ -71,7 +74,6 @@ public class HybridCacheService {
         return getOrLoadInternal(key, ttl, loader, value -> objectMapper.readValue(value, type));
     }
 
-    @SuppressWarnings("unchecked")
     private <T> T getOrLoadInternal(String key,
                                     Duration ttl,
                                     Supplier<T> loader,
@@ -82,27 +84,31 @@ public class HybridCacheService {
         }
 
         String fullKey = fullKey(key);
-        long expiresAt = System.currentTimeMillis() + normalizedTtl(ttl).toMillis();
-        LocalEntry local = localCache.get(fullKey);
-        if (local != null && local.expiresAtMs() > System.currentTimeMillis()) {
-            recordCacheEvent("local_hit");
-            return (T) local.value();
+        Duration effectiveTtl = normalizedTtl(ttl);
+        T cached = readCached(fullKey, effectiveTtl, redisValueReader);
+        if (cached != null) {
+            return cached;
         }
 
-        T redisValue = readRedis(fullKey, redisValueReader);
-        if (redisValue != null) {
-            recordCacheEvent("redis_hit");
-            putLocal(fullKey, redisValue, expiresAt);
-            return redisValue;
-        }
+        LoadLock lock = acquireLoadLock(fullKey);
+        lock.lock();
+        try {
+            cached = readCached(fullKey, effectiveTtl, redisValueReader);
+            if (cached != null) {
+                return cached;
+            }
 
-        recordCacheEvent("loader_load");
-        T loaded = loader.get();
-        if (loaded != null) {
-            putLocal(fullKey, loaded, expiresAt);
-            writeRedis(fullKey, loaded, normalizedTtl(ttl));
+            recordCacheEvent("loader_load");
+            T loaded = loader.get();
+            if (loaded != null) {
+                putLocal(fullKey, loaded, System.currentTimeMillis() + effectiveTtl.toMillis());
+                writeRedis(fullKey, loaded, effectiveTtl);
+            }
+            return loaded;
+        } finally {
+            lock.unlock();
+            releaseLoadLock(fullKey, lock);
         }
-        return loaded;
     }
 
     public void evict(String key) {
@@ -139,6 +145,38 @@ public class HybridCacheService {
 
     int localSize() {
         return localCache.size();
+    }
+
+    private LoadLock acquireLoadLock(String fullKey) {
+        return loadLocks.compute(fullKey, (ignored, existing) -> {
+            LoadLock lock = existing == null ? new LoadLock() : existing;
+            lock.retain();
+            return lock;
+        });
+    }
+
+    private void releaseLoadLock(String fullKey, LoadLock lock) {
+        if (lock.release() == 0) {
+            loadLocks.remove(fullKey, lock);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T readCached(String fullKey, Duration ttl, RedisValueReader<T> redisValueReader) {
+        long now = System.currentTimeMillis();
+        LocalEntry local = localCache.get(fullKey);
+        if (local != null && local.expiresAtMs() > now) {
+            recordCacheEvent("local_hit");
+            return (T) local.value();
+        }
+
+        T redisValue = readRedis(fullKey, redisValueReader);
+        if (redisValue != null) {
+            recordCacheEvent("redis_hit");
+            putLocal(fullKey, redisValue, now + ttl.toMillis());
+            return redisValue;
+        }
+        return null;
     }
 
     private <T> T readRedis(String fullKey, RedisValueReader<T> redisValueReader) {
@@ -223,6 +261,27 @@ public class HybridCacheService {
             return Duration.ofSeconds(1);
         }
         return ttl;
+    }
+
+    private static final class LoadLock {
+        private final ReentrantLock lock = new ReentrantLock();
+        private final AtomicInteger references = new AtomicInteger();
+
+        void retain() {
+            references.incrementAndGet();
+        }
+
+        int release() {
+            return references.decrementAndGet();
+        }
+
+        void lock() {
+            lock.lock();
+        }
+
+        void unlock() {
+            lock.unlock();
+        }
     }
 
     private record LocalEntry(Object value, long expiresAtMs) {

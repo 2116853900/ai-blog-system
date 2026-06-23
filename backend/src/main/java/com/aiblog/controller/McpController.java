@@ -3,6 +3,8 @@ package com.aiblog.controller;
 import com.aiblog.cache.PublicContentCacheService;
 import com.aiblog.dto.ResourceTagSummaryResponse;
 import com.aiblog.entity.Mcp;
+import com.aiblog.entity.ResourceReview;
+import com.aiblog.service.ResourceReviewBatchAggregator;
 import com.aiblog.repository.McpRepository;
 import com.aiblog.service.ResourceTagService;
 import com.aiblog.service.SearchSpecs;
@@ -20,23 +22,30 @@ public class McpController {
     private final McpRepository repo;
     private final PublicContentCacheService cacheService;
     private final ResourceTagService tagService;
+    private final ResourceReviewBatchAggregator reviewBatch;
 
-    public McpController(McpRepository repo, PublicContentCacheService cacheService, ResourceTagService tagService) {
+    public McpController(McpRepository repo,
+                         PublicContentCacheService cacheService,
+                         ResourceTagService tagService,
+                         ResourceReviewBatchAggregator reviewBatch) {
         this.repo = repo;
         this.cacheService = cacheService;
         this.tagService = tagService;
+        this.reviewBatch = reviewBatch;
     }
 
     @GetMapping
     public List<Mcp> list(@RequestParam(required = false) String q,
                           @RequestParam(required = false) String tag,
                           @RequestParam(required = false) String category) {
-        return cacheService.publicContent(
+        List<Mcp> mcps = cacheService.publicContent(
                 cacheService.mcpsListKey(q, tag, category),
                 new TypeReference<List<Mcp>>() {},
                 () -> repo.findAll(
                         SearchSpecs.build(q, tag, category, List.of("name", "description", "tags")),
                         Sort.by(Sort.Direction.DESC, "recommendLevel").and(Sort.by(Sort.Direction.DESC, "createdAt"))));
+        reviewBatch.apply(ResourceReview.RefType.MCP, mcps);
+        return mcps;
     }
 
     @GetMapping("/tags/popular")

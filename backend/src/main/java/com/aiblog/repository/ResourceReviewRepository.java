@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ResourceReviewRepository extends JpaRepository<ResourceReview, Long> {
@@ -37,4 +38,19 @@ public interface ResourceReviewRepository extends JpaRepository<ResourceReview, 
     double averageRating(@Param("refType") ResourceReview.RefType refType,
                          @Param("refId") Long refId,
                          @Param("status") ResourceReview.ReviewStatus status);
+
+    Page<ResourceReview> findByUserIdAndStatusOrderByUpdatedAtDesc(
+            Long userId,
+            ResourceReview.ReviewStatus status,
+            Pageable pageable);
+
+    @Query("""
+            SELECT r.refId, AVG(r.rating), COUNT(r)
+            FROM ResourceReview r
+            WHERE r.refType = :refType AND r.refId IN :refIds AND r.status = :status
+            GROUP BY r.refId
+            """)
+    List<Object[]> aggregateByRefIds(@Param("refType") ResourceReview.RefType refType,
+                                     @Param("refIds") List<Long> refIds,
+                                     @Param("status") ResourceReview.ReviewStatus status);
 }

@@ -85,6 +85,7 @@ function fmt(d: string) {
           :style="{ animationDelay: `${Math.min(i * 0.04, 0.4)}s` }"
         >
           <div class="post-main">
+            <CommunityRatingBadge class="post-rating" :average-rating="p.averageRating" :review-count="p.reviewCount" />
             <span v-if="p.category" class="chip cat">{{ p.category }}</span>
             <h3 class="mono">{{ p.title }}</h3>
             <p class="muted">{{ p.summary }}</p>
@@ -117,6 +118,7 @@ function fmt(d: string) {
   display: flex; justify-content: space-between; align-items: start; gap: 16px;
 }
 .post:hover { text-decoration: none; }
+.post-rating { margin-bottom: 6px; }
 .cat { margin-bottom: 8px; pointer-events: none; }
 .post h3 { margin: 0 0 4px; font-size: 17px; }
 .date { white-space: nowrap; font-size: 13px; flex-shrink: 0; }

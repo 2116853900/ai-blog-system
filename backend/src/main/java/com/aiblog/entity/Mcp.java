@@ -7,7 +7,7 @@ import java.time.Instant;
 @Table(name = "mcp", indexes = {
         @Index(name = "idx_mcp_created", columnList = "createdAt")
 })
-public class Mcp {
+public class Mcp implements com.aiblog.service.ResourceReviewBatchAggregator.ReviewRatingTarget {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -35,6 +35,12 @@ public class Mcp {
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
+    @Transient
+    private double averageRating;
+
+    @Transient
+    private long reviewCount;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getName() { return name; }
@@ -53,4 +59,13 @@ public class Mcp {
     public void setRecommendLevel(Integer recommendLevel) { this.recommendLevel = recommendLevel; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    public double getAverageRating() { return averageRating; }
+    public void setAverageRating(double averageRating) { this.averageRating = averageRating; }
+
+    public long getReviewCount() { return reviewCount; }
+    public void setReviewCount(long reviewCount) { this.reviewCount = reviewCount; }
+
+    @Override
+    public Long getReviewRefId() { return id; }
 }

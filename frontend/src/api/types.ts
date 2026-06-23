@@ -9,6 +9,8 @@ export interface Post {
   published: boolean
   createdAt: string
   updatedAt: string
+  averageRating?: number
+  reviewCount?: number
 }
 
 export interface Skill {
@@ -20,6 +22,8 @@ export interface Skill {
   category?: string
   recommendLevel?: number
   createdAt?: string
+  averageRating?: number
+  reviewCount?: number
 }
 
 export interface Mcp {
@@ -32,6 +36,8 @@ export interface Mcp {
   category?: string
   recommendLevel?: number
   createdAt?: string
+  averageRating?: number
+  reviewCount?: number
 }
 
 export type ApiStatus = 'UP' | 'DOWN' | 'UNKNOWN'
@@ -47,6 +53,8 @@ export interface ApiStation {
   latencyMs?: number
   lastCheckedAt?: string
   createdAt?: string
+  averageRating?: number
+  reviewCount?: number
 }
 
 export interface ApiStationStatusCheck {
@@ -338,6 +346,18 @@ export interface ResourceReview {
   userId: number
   refType: ResourceFavoriteRefType
   refId: number
+  rating: number
+  content?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AccountResourceReviewItem {
+  id: number
+  refType: ResourceFavoriteRefType
+  refId: number
+  title: string
+  url: string
   rating: number
   content?: string
   createdAt: string

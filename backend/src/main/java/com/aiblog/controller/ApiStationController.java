@@ -7,6 +7,8 @@ import com.aiblog.dto.ApiStationStatusCheckResponse;
 import com.aiblog.dto.ApiStationStatusSummaryResponse;
 import com.aiblog.dto.ResourceTagSummaryResponse;
 import com.aiblog.entity.ApiStation;
+import com.aiblog.entity.ResourceReview;
+import com.aiblog.service.ResourceReviewBatchAggregator;
 import com.aiblog.repository.ApiStationRepository;
 import com.aiblog.service.ApiStationStatusHistoryService;
 import com.aiblog.service.ResourceTagService;
@@ -26,22 +28,25 @@ public class ApiStationController {
     private final ApiStationStatusHistoryService historyService;
     private final PublicContentCacheService cacheService;
     private final ResourceTagService tagService;
+    private final ResourceReviewBatchAggregator reviewBatch;
 
     public ApiStationController(ApiStationRepository repo,
                                 ApiStationStatusHistoryService historyService,
                                 PublicContentCacheService cacheService,
-                                ResourceTagService tagService) {
+                                ResourceTagService tagService,
+                                ResourceReviewBatchAggregator reviewBatch) {
         this.repo = repo;
         this.historyService = historyService;
         this.cacheService = cacheService;
         this.tagService = tagService;
+        this.reviewBatch = reviewBatch;
     }
 
     @GetMapping
     public List<ApiStation> list(@RequestParam(required = false) String q,
                                  @RequestParam(required = false) String tag,
                                  @RequestParam(required = false) ApiStation.Status status) {
-        return cacheService.publicContent(
+        List<ApiStation> stations = cacheService.publicContent(
                 cacheService.apiStationsListKey(q, tag, status),
                 new TypeReference<List<ApiStation>>() {},
                 () -> {
@@ -51,6 +56,8 @@ public class ApiStationController {
                     }
                     return repo.findAll(spec, Sort.by(Sort.Direction.ASC, "name"));
                 });
+        reviewBatch.apply(ResourceReview.RefType.API, stations);
+        return stations;
     }
 
     @GetMapping("/tags/popular")

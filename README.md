@@ -94,7 +94,9 @@ npm run dev
 
 ## 生产构建
 
-- 前端：`npm run build`（产物在 `frontend/dist`）
-- 后端：`mvn clean package`（产物 `backend/target/*.jar`，`java -jar` 运行）
+- 前端类型检查：`npm run typecheck`
+- 前端构建：`npm run build`（先执行类型检查，再输出产物到 `frontend/dist`）
+- 后端测试：`mvn test`
+- 后端打包：`mvn clean package`（产物 `backend/target/*.jar`，`java -jar` 运行）
 
 > 注意：公益 API 中转站内容仅供学习交流，请遵守各站点使用规则。示例数据中的站点地址为占位，请在后台替换为真实地址。

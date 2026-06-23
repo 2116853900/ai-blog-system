@@ -1,10 +1,14 @@
 package com.aiblog.service;
 
+import com.aiblog.dto.AccountResourceReviewItemResponse;
 import com.aiblog.dto.ResourceReviewRequest;
 import com.aiblog.dto.ResourceReviewResponse;
 import com.aiblog.dto.ResourceReviewSummaryResponse;
+import com.aiblog.entity.ApiStation;
+import com.aiblog.entity.Mcp;
 import com.aiblog.entity.Post;
 import com.aiblog.entity.ResourceReview;
+import com.aiblog.entity.Skill;
 import com.aiblog.repository.ApiStationRepository;
 import com.aiblog.repository.McpRepository;
 import com.aiblog.repository.PostRepository;
@@ -14,6 +18,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import static com.aiblog.entity.ResourceReview.ReviewStatus.NORMAL;
 
 @Service
 public class ResourceReviewService {
@@ -48,6 +54,12 @@ public class ResourceReviewService {
                 reviewRepo.averageRating(refType, refId, ResourceReview.ReviewStatus.NORMAL),
                 reviewRepo.countByRefTypeAndRefIdAndStatus(refType, refId, ResourceReview.ReviewStatus.NORMAL),
                 myReview);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AccountResourceReviewItemResponse> listMine(Long userId, Pageable pageable) {
+        return reviewRepo.findByUserIdAndStatusOrderByUpdatedAtDesc(userId, NORMAL, pageable)
+                .map(this::toAccountItem);
     }
 
     @Transactional(readOnly = true)
@@ -105,5 +117,38 @@ public class ResourceReviewService {
         if (value == null) return null;
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private AccountResourceReviewItemResponse toAccountItem(ResourceReview review) {
+        return new AccountResourceReviewItemResponse(
+                review.getId(),
+                review.getRefType(),
+                review.getRefId(),
+                resolveTitle(review.getRefType(), review.getRefId()),
+                resolveUrl(review.getRefType(), review.getRefId()),
+                review.getRating(),
+                review.getContent(),
+                review.getCreatedAt(),
+                review.getUpdatedAt()
+        );
+    }
+
+    private String resolveTitle(ResourceReview.RefType refType, Long refId) {
+        return switch (refType) {
+            case POST -> postRepo.findById(refId).filter(Post::isPublished).map(Post::getTitle).orElse("教程已下架");
+            case SKILL -> skillRepo.findById(refId).map(Skill::getName).orElse("Skill 已下架");
+            case MCP -> mcpRepo.findById(refId).map(Mcp::getName).orElse("MCP 已下架");
+            case API -> apiRepo.findById(refId).map(ApiStation::getName).orElse("API 站已下架");
+        };
+    }
+
+    private String resolveUrl(ResourceReview.RefType refType, Long refId) {
+        return switch (refType) {
+            case POST -> postRepo.findById(refId).filter(Post::isPublished)
+                    .map(p -> "/tutorials/" + p.getSlug()).orElse("/tutorials");
+            case SKILL -> "/skills/" + refId;
+            case MCP -> "/mcps/" + refId;
+            case API -> "/api-stations/" + refId;
+        };
     }
 }

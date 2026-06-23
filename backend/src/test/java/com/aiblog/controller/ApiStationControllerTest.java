@@ -8,6 +8,7 @@ import com.aiblog.dto.ApiStationHealthTrendResponse;
 import com.aiblog.entity.ApiStation;
 import com.aiblog.repository.ApiStationRepository;
 import com.aiblog.service.ApiStationStatusHistoryService;
+import com.aiblog.service.ResourceReviewBatchAggregator;
 import com.aiblog.service.ResourceTagService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -56,7 +57,8 @@ class ApiStationControllerTest {
                 mock(ApiStationRepository.class),
                 historyService,
                 cacheService(),
-                mock(ResourceTagService.class)
+                mock(ResourceTagService.class),
+                mock(ResourceReviewBatchAggregator.class)
         );
 
         ApiStationHealthDashboardResponse result = controller.healthDashboard(10, 5);
@@ -91,7 +93,8 @@ class ApiStationControllerTest {
                 mock(ApiStationRepository.class),
                 historyService,
                 cacheService(),
-                mock(ResourceTagService.class)
+                mock(ResourceTagService.class),
+                mock(ResourceReviewBatchAggregator.class)
         );
 
         ApiStationHealthTrendResponse result = controller.healthTrends(7, 4);

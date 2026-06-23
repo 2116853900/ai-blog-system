@@ -9,7 +9,7 @@ import type {
   ThreadStatus, ReplyStatus, AdminForumUser, UserStatus, ForumInteraction,
   ForumSubscriptionSummary, ForumThreadSubscriptionItem,
   ResourceFavoriteInteraction, ResourceFavoriteItem, ResourceFavoriteRefType, UserNotification,
-  ResourceReview, ResourceReviewSummary, RelatedResource,
+  ResourceReview, ResourceReviewSummary, AccountResourceReviewItem, RelatedResource,
   ContentReport, ContentReportTarget, ReportReasonType, ReportStatus, ReportTargetType, CommentStatus,
   GlobalSearchResponse, AdminDashboard, ResourceTagSummary, PublicStats
 } from './types'
@@ -97,6 +97,8 @@ export const accountApi = {
     http.get<ForumSubscriptionSummary>('/account/subscription-summary').then(r => r.data),
   resourceFavorites: (params?: { page?: number; size?: number }) =>
     http.get<Page<ResourceFavoriteItem>>('/account/resource-favorites', { params }).then(r => r.data),
+  resourceReviews: (params?: { page?: number; size?: number }) =>
+    http.get<Page<AccountResourceReviewItem>>('/account/resource-reviews', { params }).then(r => r.data),
   favoriteResource: (refType: ResourceFavoriteRefType, refId: number) =>
     http.post<ResourceFavoriteInteraction>(`/account/resource-favorites/${refType}/${refId}`).then(r => r.data),
   unfavoriteResource: (refType: ResourceFavoriteRefType, refId: number) =>

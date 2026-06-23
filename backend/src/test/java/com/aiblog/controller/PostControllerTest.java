@@ -6,6 +6,7 @@ import com.aiblog.cache.PublicContentCacheService;
 import com.aiblog.dto.ResourceTagSummaryResponse;
 import com.aiblog.entity.Post;
 import com.aiblog.repository.PostRepository;
+import com.aiblog.service.ResourceReviewBatchAggregator;
 import com.aiblog.service.ResourceTagService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -32,7 +33,7 @@ class PostControllerTest {
         Post post = post(1L, "intro", true);
         post.setBodyMarkdown("# full body");
         when(repo.findByPublishedTrueOrderByCreatedAtDesc()).thenReturn(List.of(post));
-        PostController controller = new PostController(repo, cacheService(), mock(ResourceTagService.class));
+        PostController controller = new PostController(repo, cacheService(), mock(ResourceTagService.class), mock(ResourceReviewBatchAggregator.class));
 
         List<Post> response = controller.list(null, null, null);
 
@@ -48,7 +49,7 @@ class PostControllerTest {
         post.setBodyMarkdown("# full body");
         Sort expectedSort = Sort.by(Sort.Direction.DESC, "createdAt");
         when(repo.findAll(any(Specification.class), eq(expectedSort))).thenReturn(List.of(post));
-        PostController controller = new PostController(repo, cacheService(), mock(ResourceTagService.class));
+        PostController controller = new PostController(repo, cacheService(), mock(ResourceTagService.class), mock(ResourceReviewBatchAggregator.class));
 
         List<Post> response = controller.list("prompt", "AI", "教程");
 
@@ -63,7 +64,7 @@ class PostControllerTest {
         ResourceTagService tagService = mock(ResourceTagService.class);
         List<ResourceTagSummaryResponse> tags = List.of(new ResourceTagSummaryResponse("Prompt", 3));
         when(tagService.postPopularTags(9)).thenReturn(tags);
-        PostController controller = new PostController(repo, cacheService(), tagService);
+        PostController controller = new PostController(repo, cacheService(), tagService, mock(ResourceReviewBatchAggregator.class));
 
         List<ResourceTagSummaryResponse> response = controller.popularTags(9);
 
@@ -76,7 +77,7 @@ class PostControllerTest {
         PostRepository repo = mock(PostRepository.class);
         Post post = post(1L, "intro", true);
         when(repo.findBySlug("intro")).thenReturn(Optional.of(post));
-        PostController controller = new PostController(repo, cacheService(), mock(ResourceTagService.class));
+        PostController controller = new PostController(repo, cacheService(), mock(ResourceTagService.class), mock(ResourceReviewBatchAggregator.class));
 
         var response = controller.detail("intro");
 
@@ -89,7 +90,7 @@ class PostControllerTest {
         PostRepository repo = mock(PostRepository.class);
         Post post = post(1L, "draft", false);
         when(repo.findBySlug("draft")).thenReturn(Optional.of(post));
-        PostController controller = new PostController(repo, cacheService(), mock(ResourceTagService.class));
+        PostController controller = new PostController(repo, cacheService(), mock(ResourceTagService.class), mock(ResourceReviewBatchAggregator.class));
 
         var response = controller.detail("draft");
 

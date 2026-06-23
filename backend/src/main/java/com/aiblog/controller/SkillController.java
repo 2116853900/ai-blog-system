@@ -2,7 +2,9 @@ package com.aiblog.controller;
 
 import com.aiblog.cache.PublicContentCacheService;
 import com.aiblog.dto.ResourceTagSummaryResponse;
+import com.aiblog.entity.ResourceReview;
 import com.aiblog.entity.Skill;
+import com.aiblog.service.ResourceReviewBatchAggregator;
 import com.aiblog.repository.SkillRepository;
 import com.aiblog.service.ResourceTagService;
 import com.aiblog.service.SearchSpecs;
@@ -20,23 +22,30 @@ public class SkillController {
     private final SkillRepository repo;
     private final PublicContentCacheService cacheService;
     private final ResourceTagService tagService;
+    private final ResourceReviewBatchAggregator reviewBatch;
 
-    public SkillController(SkillRepository repo, PublicContentCacheService cacheService, ResourceTagService tagService) {
+    public SkillController(SkillRepository repo,
+                           PublicContentCacheService cacheService,
+                           ResourceTagService tagService,
+                           ResourceReviewBatchAggregator reviewBatch) {
         this.repo = repo;
         this.cacheService = cacheService;
         this.tagService = tagService;
+        this.reviewBatch = reviewBatch;
     }
 
     @GetMapping
     public List<Skill> list(@RequestParam(required = false) String q,
                             @RequestParam(required = false) String tag,
                             @RequestParam(required = false) String category) {
-        return cacheService.publicContent(
+        List<Skill> skills = cacheService.publicContent(
                 cacheService.skillsListKey(q, tag, category),
                 new TypeReference<List<Skill>>() {},
                 () -> repo.findAll(
                         SearchSpecs.build(q, tag, category, List.of("name", "description", "tags")),
                         Sort.by(Sort.Direction.DESC, "recommendLevel").and(Sort.by(Sort.Direction.DESC, "createdAt"))));
+        reviewBatch.apply(ResourceReview.RefType.SKILL, skills);
+        return skills;
     }
 
     @GetMapping("/tags/popular")

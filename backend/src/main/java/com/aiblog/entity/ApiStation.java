@@ -8,7 +8,7 @@ import java.time.Instant;
         @Index(name = "idx_api_station_name", columnList = "name"),
         @Index(name = "idx_api_station_status", columnList = "status")
 })
-public class ApiStation {
+public class ApiStation implements com.aiblog.service.ResourceReviewBatchAggregator.ReviewRatingTarget {
     public enum Status { UP, DOWN, UNKNOWN }
 
     @Id
@@ -42,6 +42,12 @@ public class ApiStation {
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
+    @Transient
+    private double averageRating;
+
+    @Transient
+    private long reviewCount;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getName() { return name; }
@@ -62,4 +68,13 @@ public class ApiStation {
     public void setLastCheckedAt(Instant lastCheckedAt) { this.lastCheckedAt = lastCheckedAt; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    public double getAverageRating() { return averageRating; }
+    public void setAverageRating(double averageRating) { this.averageRating = averageRating; }
+
+    public long getReviewCount() { return reviewCount; }
+    public void setReviewCount(long reviewCount) { this.reviewCount = reviewCount; }
+
+    @Override
+    public Long getReviewRefId() { return id; }
 }

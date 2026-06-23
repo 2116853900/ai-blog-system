@@ -10,6 +10,8 @@ import Skeleton from '../components/Skeleton.vue'
 import DetailDrawer from '../components/DetailDrawer.vue'
 import CommentSection from '../components/CommentSection.vue'
 import CopyButton from '../components/CopyButton.vue'
+import ResourceFavoriteButton from '../components/ResourceFavoriteButton.vue'
+import ResourceReviewPanel from '../components/ResourceReviewPanel.vue'
 import { useListView } from '../composables/useListView'
 
 type StatusFilter = 'ALL' | ApiStatus
@@ -132,7 +134,10 @@ onMounted(loadPopularTags)
         >
           <div class="item-head">
             <h3 class="mono">{{ a.name }}</h3>
-            <StatusBadge :status="a.status" :latency-ms="a.latencyMs" />
+            <div class="item-ratings">
+              <CommunityRatingBadge :average-rating="a.averageRating" :review-count="a.reviewCount" />
+              <StatusBadge :status="a.status" :latency-ms="a.latencyMs" />
+            </div>
           </div>
           <p v-if="a.description" class="muted desc">{{ a.description }}</p>
           <div class="codeline" @click.stop>
@@ -175,6 +180,10 @@ onMounted(loadPopularTags)
         </div>
 
         <TagList :tags="selected.tags" @select="(t) => { toggleTag(t); close() }" />
+        <div class="resource-actions">
+          <ResourceFavoriteButton ref-type="API" :ref-id="selected.id" />
+          <ResourceReviewPanel ref-type="API" :ref-id="selected.id" />
+        </div>
         <hr class="d-sep" />
         <CommentSection ref-type="API" :ref-id="selected.id" />
       </template>
@@ -237,6 +246,7 @@ onMounted(loadPopularTags)
   padding: 20px; display: flex; flex-direction: column; gap: 10px;
   text-align: left; width: 100%; cursor: pointer; font: inherit; color: inherit;
 }
+.item-ratings { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
 .item-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .item-head h3 { margin: 0; font-size: 16px; font-weight: 700; }
 .desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -250,6 +260,7 @@ onMounted(loadPopularTags)
 .d-desc { line-height: 1.8; margin: 0 0 16px; }
 .d-field { margin-bottom: 16px; }
 .d-label { display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; }
+.resource-actions { display: grid; gap: 18px; margin-top: 20px; }
 .d-sep { border: none; border-top: 1px dashed var(--border-strong); margin: 24px 0; }
 @media (max-width: 720px) {
   .page-head { display: grid; }

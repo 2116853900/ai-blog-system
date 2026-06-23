@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import { accountApi, authApi } from '../api'
 import type {
   ForumReply,
@@ -8,6 +8,7 @@ import type {
   ForumThread,
   ForumThreadSubscriptionItem,
   Page,
+  AccountResourceReviewItem,
   ResourceFavoriteItem,
   UserNotification,
   UserProfile
@@ -15,8 +16,8 @@ import type {
 import { useAuthStore } from '../stores/auth'
 import { toast } from '../composables/useToast'
 
-type ActivityTab = 'threads' | 'replies' | 'favorites' | 'subscriptions' | 'resources' | 'notifications'
-type ActivityItem = ForumThread | ForumReply | ForumThreadSubscriptionItem | ResourceFavoriteItem | UserNotification
+type ActivityTab = 'threads' | 'replies' | 'favorites' | 'subscriptions' | 'resources' | 'reviews' | 'notifications'
+type ActivityItem = ForumThread | ForumReply | ForumThreadSubscriptionItem | ResourceFavoriteItem | AccountResourceReviewItem | UserNotification
 
 const ACTIVITY_PAGE_SIZE = 6
 const resourceTypeLabels: Record<ResourceFavoriteItem['refType'], string> = {
@@ -25,6 +26,7 @@ const resourceTypeLabels: Record<ResourceFavoriteItem['refType'], string> = {
   MCP: 'MCP',
   API: 'API'
 }
+const route = useRoute()
 const auth = useAuthStore()
 const profile = ref<UserProfile | null>(null)
 const loading = ref(false)
@@ -47,14 +49,16 @@ const myReplies = ref<Page<ForumReply> | null>(null)
 const myFavorites = ref<Page<ForumThread> | null>(null)
 const mySubscriptions = ref<Page<ForumThreadSubscriptionItem> | null>(null)
 const myResourceFavorites = ref<Page<ResourceFavoriteItem> | null>(null)
+const myResourceReviews = ref<Page<AccountResourceReviewItem> | null>(null)
 const myNotifications = ref<Page<UserNotification> | null>(null)
 
-const currentActivity = computed<Page<ForumThread> | Page<ForumReply> | Page<ForumThreadSubscriptionItem> | Page<ResourceFavoriteItem> | Page<UserNotification> | null>(() => {
+const currentActivity = computed<Page<ForumThread> | Page<ForumReply> | Page<ForumThreadSubscriptionItem> | Page<ResourceFavoriteItem> | Page<AccountResourceReviewItem> | Page<UserNotification> | null>(() => {
   if (activityTab.value === 'threads') return myThreads.value
   if (activityTab.value === 'replies') return myReplies.value
   if (activityTab.value === 'favorites') return myFavorites.value
   if (activityTab.value === 'subscriptions') return mySubscriptions.value
   if (activityTab.value === 'resources') return myResourceFavorites.value
+  if (activityTab.value === 'reviews') return myResourceReviews.value
   return myNotifications.value
 })
 const activityItems = computed<ActivityItem[]>(() => (currentActivity.value?.content || []) as ActivityItem[])
@@ -160,7 +164,11 @@ function isReply(item: ActivityItem): item is ForumReply {
 }
 
 function isResourceFavorite(item: ActivityItem): item is ResourceFavoriteItem {
-  return 'refType' in item && 'refId' in item && 'url' in item
+  return 'refType' in item && 'refId' in item && 'url' in item && !('rating' in item)
+}
+
+function isResourceReview(item: ActivityItem): item is AccountResourceReviewItem {
+  return 'refType' in item && 'rating' in item && 'url' in item
 }
 
 function isSubscriptionItem(item: ActivityItem): item is ForumThreadSubscriptionItem {
@@ -186,6 +194,7 @@ function previewMarkdown(markdown?: string) {
 
 function activityTitle(item: ActivityItem) {
   if (isNotification(item)) return item.title
+  if (isResourceReview(item)) return item.title
   if (isResourceFavorite(item)) return item.title
   if (isReply(item)) return `回复 #${item.floorNumber} · 帖子 ${item.threadId}`
   return item.title
@@ -193,6 +202,7 @@ function activityTitle(item: ActivityItem) {
 
 function activityPreview(item: ActivityItem) {
   if (isNotification(item)) return item.message
+  if (isResourceReview(item)) return item.content || '暂无评价内容。'
   if (isResourceFavorite(item)) return item.description || '暂无描述。'
   return previewMarkdown(item.contentMarkdown)
 }
@@ -200,6 +210,9 @@ function activityPreview(item: ActivityItem) {
 function activityMeta(item: ActivityItem) {
   if (isNotification(item)) {
     return `通知 · ${fmt(item.createdAt)}`
+  }
+  if (isResourceReview(item)) {
+    return `${resourceTypeLabels[item.refType]} · ${item.rating} 星 · ${fmt(item.updatedAt || item.createdAt)}`
   }
   if (isResourceFavorite(item)) {
     return `${resourceTypeLabels[item.refType]} · 收藏于 ${fmt(item.createdAt)}`
@@ -216,6 +229,7 @@ function activityMeta(item: ActivityItem) {
 
 function activityLink(item: ActivityItem) {
   if (isNotification(item)) return item.linkUrl
+  if (isResourceReview(item)) return item.url
   if (isResourceFavorite(item)) return item.url
   if (isSubscriptionItem(item)) return item.url
   return isReply(item) ? `/forum/threads/${item.threadId}` : `/forum/threads/${item.id}`
@@ -297,6 +311,8 @@ async function loadActivity(nextPage = activityPage.value) {
       await refreshSubscriptionSummary()
     } else if (activityTab.value === 'resources') {
       myResourceFavorites.value = await accountApi.resourceFavorites(params)
+    } else if (activityTab.value === 'reviews') {
+      myResourceReviews.value = await accountApi.resourceReviews(params)
     } else {
       myNotifications.value = await accountApi.notifications(params)
       await refreshUnreadNotifications()
@@ -308,7 +324,22 @@ async function loadActivity(nextPage = activityPage.value) {
   }
 }
 
-onMounted(load)
+
+function applyRouteTab() {
+  const tab = route.query.tab
+  const allowed: ActivityTab[] = ['threads', 'replies', 'favorites', 'subscriptions', 'resources', 'reviews', 'notifications']
+  if (typeof tab === 'string' && (allowed as string[]).includes(tab)) {
+    activityTab.value = tab as ActivityTab
+  }
+}
+
+watch(() => route.query.tab, () => applyRouteTab())
+
+
+onMounted(async () => {
+  applyRouteTab()
+  await load()
+})
 </script>
 
 <template>
@@ -466,6 +497,16 @@ onMounted(load)
         </button>
         <button
           class="tab-btn"
+          :class="{ active: activityTab === 'reviews' }"
+          type="button"
+          role="tab"
+          :aria-selected="activityTab === 'reviews'"
+          @click="selectActivity('reviews')"
+        >
+          我的评价
+        </button>
+        <button
+          class="tab-btn"
           :class="{ active: activityTab === 'notifications' }"
           type="button"
           role="tab"
@@ -511,6 +552,7 @@ onMounted(load)
           <div class="activity-title-row">
             <strong>{{ activityTitle(item) }}</strong>
             <span v-if="isNotification(item) && !item.read" class="chip chip-active">未读</span>
+            <span v-else-if="isResourceReview(item)" class="chip chip-active">{{ item.rating }} 星</span>
             <span v-else-if="isResourceFavorite(item)" class="chip chip-active">{{ resourceTypeLabels[item.refType] }}</span>
             <span v-else-if="!isReply(item) && activityTab === 'favorites'" class="chip chip-active">收藏</span>
             <span v-else-if="isSubscriptionItem(item) && item.unread" class="chip chip-active">{{ item.unreadReplyCount }} 未读</span>

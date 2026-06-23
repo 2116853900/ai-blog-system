@@ -1,66 +1,116 @@
 <script setup lang="ts">
-import { RouterLink, useRoute, useRouter } from 'vue-router'
-import ThemeToggle from './ThemeToggle.vue'
-import { computed, ref, watch } from 'vue'
-import { useAuthStore } from '../stores/auth'
+	import { RouterLink, useRoute, useRouter } from 'vue-router'
+	import ThemeToggle from './ThemeToggle.vue'
+	import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+	import { accountApi } from '../api'
+	import { useAuthStore } from '../stores/auth'
 
-const open = ref(false)
-const resourceOpen = ref(false)
-const auth = useAuthStore()
-const route = useRoute()
-const router = useRouter()
-const searchQuery = ref(typeof route.query.q === 'string' ? route.query.q : '')
-const links = [
-  { to: '/', label: '首页' },
-  { to: '/forum', label: '论坛' },
-  { to: '/stats', label: '洞察' },
-  { to: '/submit', label: '投稿' }
-]
-const resourceLinks = [
-  { to: '/skills', label: 'AI Skill' },
-  { to: '/mcps', label: 'MCP 服务' },
-  { to: '/tutorials', label: '教程文档' },
-  { to: '/api-stations', label: 'API 中转站' },
-  { to: '/api-stations/health', label: '状态大盘' }
-]
-const resourceActive = computed(() =>
-  resourceLinks.some(l => route.path === l.to || route.path.startsWith(`${l.to}/`))
-)
+	const NOTIFICATION_POLL_MS = 60_000
+	let notificationPollTimer: ReturnType<typeof setInterval> | null = null
 
-function logout() {
-  auth.logout()
-  open.value = false
-  resourceOpen.value = false
-}
+	const open = ref(false)
+	const resourceOpen = ref(false)
+	const auth = useAuthStore()
+	const route = useRoute()
+	const router = useRouter()
+	const searchQuery = ref(typeof route.query.q === 'string' ? route.query.q : '')
+	const unreadNotifications = ref(0)
 
-function submitSearch() {
-  const q = searchQuery.value.trim()
-  if (!q) return
-  open.value = false
-  resourceOpen.value = false
-  router.push({ name: 'search', query: { q } })
-}
+	async function refreshUnreadNotifications() {
+	  if (!auth.isLoggedIn()) {
+	    unreadNotifications.value = 0
+	    return
+	  }
+	  try {
+	    unreadNotifications.value = (await accountApi.unreadNotificationCount()).count
+	  } catch { /* ignore */ }
+	}
 
-function closeMenus() {
-  open.value = false
-  resourceOpen.value = false
-}
+	function startNotificationPolling() {
+	  stopNotificationPolling()
+	  if (!auth.isLoggedIn()) return
+	  void refreshUnreadNotifications()
+	  notificationPollTimer = setInterval(() => void refreshUnreadNotifications(), NOTIFICATION_POLL_MS)
+	}
 
-watch(
-  () => route.query.q,
-  value => {
-    if (route.name === 'search') {
-      searchQuery.value = typeof value === 'string' ? value : ''
-    }
-  }
-)
+	function stopNotificationPolling() {
+	  if (notificationPollTimer) {
+	    clearInterval(notificationPollTimer)
+	    notificationPollTimer = null
+	  }
+	}
 
-watch(
-  () => route.fullPath,
-  () => {
-    resourceOpen.value = false
-  }
-)
+	const links = [
+	  { to: '/', label: '首页' },
+	  { to: '/forum', label: '论坛' },
+	  { to: '/stats', label: '洞察' },
+	  { to: '/submit', label: '投稿' }
+	]
+	const resourceLinks = [
+	  { to: '/skills', label: 'AI Skill' },
+	  { to: '/mcps', label: 'MCP 服务' },
+	  { to: '/tutorials', label: '教程文档' },
+	  { to: '/api-stations', label: 'API 中转站' },
+	  { to: '/api-stations/health', label: '状态大盘' }
+	]
+	const resourceActive = computed(() =>
+	  resourceLinks.some(l => route.path === l.to || route.path.startsWith(`${l.to}/`))
+	)
+
+	function logout() {
+	  auth.logout()
+	  unreadNotifications.value = 0
+	  stopNotificationPolling()
+	  open.value = false
+	  resourceOpen.value = false
+	}
+
+	function submitSearch() {
+	  const q = searchQuery.value.trim()
+	  if (!q) return
+	  open.value = false
+	  resourceOpen.value = false
+	  router.push({ name: 'search', query: { q } })
+	}
+
+	function closeMenus() {
+	  open.value = false
+	  resourceOpen.value = false
+	}
+
+	watch(
+	  () => route.query.q,
+	  value => {
+	    if (route.name === 'search') {
+	      searchQuery.value = typeof value === 'string' ? value : ''
+	    }
+	  }
+	)
+
+	watch(
+	  () => route.fullPath,
+	  () => {
+	    resourceOpen.value = false
+	  }
+	)
+
+	watch(
+	  () => auth.isLoggedIn(),
+	  loggedIn => {
+	    if (loggedIn) startNotificationPolling()
+	    else {
+	      unreadNotifications.value = 0
+	      stopNotificationPolling()
+	    }
+	  },
+	  { immediate: true }
+	)
+
+	onMounted(() => {
+	  if (auth.isLoggedIn()) startNotificationPolling()
+	})
+
+	onUnmounted(stopNotificationPolling)
 </script>
 
 <template>
@@ -124,6 +174,9 @@ watch(
         </form>
         <RouterLink v-if="!auth.isLoggedIn()" to="/login" class="nav-link" @click="closeMenus">登录</RouterLink>
         <div v-else class="user-box">
+          <RouterLink to="/account?tab=notifications" class="user-link nav-notify mono" @click="closeMenus" title="通知">
+            通知<span v-if="unreadNotifications > 0" class="nav-badge">{{ unreadNotifications > 99 ? '99+' : unreadNotifications }}</span>
+          </RouterLink>
           <RouterLink to="/account" class="user-link mono" @click="closeMenus">{{ auth.displayName }}</RouterLink>
           <button class="btn btn-sm btn-ghost" @click="logout">退出</button>
         </div>
@@ -285,6 +338,17 @@ watch(
   font-size: 12px;
 }
 .user-link:hover { color: var(--primary); border-color: var(--primary-dim); text-decoration: none; }
+.nav-notify { position: relative; }
+.nav-badge {
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--bg);
+  font-size: 10px;
+  font-weight: 800;
+  vertical-align: middle;
+}
 .menu-btn {
   display: none;
   background: var(--bg-soft);

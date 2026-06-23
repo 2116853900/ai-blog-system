@@ -15,6 +15,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 
@@ -210,14 +213,18 @@ class ApiStationStatusHistoryServiceTest {
     void healthTrendsBuildsDailyBucketsAndIncidents() {
         ApiStation stable = station(11L, "稳定站", ApiStation.Status.UP, 90);
         ApiStation flaky = station(12L, "波动站", ApiStation.Status.UP, 180);
+        Instant firstDay = Instant.now().minus(1, ChronoUnit.DAYS).truncatedTo(ChronoUnit.DAYS);
+        Instant secondDay = firstDay.plus(1, ChronoUnit.DAYS);
+        LocalDate firstDate = LocalDate.ofInstant(firstDay, ZoneId.systemDefault());
+        LocalDate secondDate = LocalDate.ofInstant(secondDay, ZoneId.systemDefault());
         when(stationRepo.findAll()).thenReturn(List.of(stable, flaky));
         List<ApiStationStatusCheck> checks = List.of(
-                trendCheck(11L, 1L, ApiStation.Status.UP, 90, "2026-06-07T01:00:00Z", null),
-                trendCheck(12L, 2L, ApiStation.Status.DOWN, null, "2026-06-07T02:00:00Z", "timeout"),
-                trendCheck(12L, 3L, ApiStation.Status.DOWN, null, "2026-06-07T02:10:00Z", "HTTP 500"),
-                trendCheck(12L, 4L, ApiStation.Status.UP, 200, "2026-06-07T02:30:00Z", null),
-                trendCheck(11L, 5L, ApiStation.Status.UNKNOWN, null, "2026-06-08T01:00:00Z", null),
-                trendCheck(12L, 6L, ApiStation.Status.DOWN, null, "2026-06-08T03:00:00Z", "timeout")
+                trendCheck(11L, 1L, ApiStation.Status.UP, 90, firstDay.plus(1, ChronoUnit.HOURS), null),
+                trendCheck(12L, 2L, ApiStation.Status.DOWN, null, firstDay.plus(2, ChronoUnit.HOURS), "timeout"),
+                trendCheck(12L, 3L, ApiStation.Status.DOWN, null, firstDay.plus(130, ChronoUnit.MINUTES), "HTTP 500"),
+                trendCheck(12L, 4L, ApiStation.Status.UP, 200, firstDay.plus(150, ChronoUnit.MINUTES), null),
+                trendCheck(11L, 5L, ApiStation.Status.UNKNOWN, null, secondDay.plus(1, ChronoUnit.HOURS), null),
+                trendCheck(12L, 6L, ApiStation.Status.DOWN, null, secondDay.plus(3, ChronoUnit.HOURS), "timeout")
         );
         when(checkRepo.findByCheckedAtGreaterThanEqualOrderByCheckedAtAsc(any(Instant.class))).thenReturn(checks);
 
@@ -225,12 +232,12 @@ class ApiStationStatusHistoryServiceTest {
 
         assertThat(trends.days()).isEqualTo(2);
         assertThat(trends.buckets()).hasSize(2);
-        assertThat(trends.buckets().get(0).date()).isEqualTo(java.time.LocalDate.parse("2026-06-07"));
+        assertThat(trends.buckets().get(0).date()).isEqualTo(firstDate);
         assertThat(trends.buckets().get(0).sampleSize()).isEqualTo(4);
         assertThat(trends.buckets().get(0).upCount()).isEqualTo(2);
         assertThat(trends.buckets().get(0).downCount()).isEqualTo(2);
         assertThat(trends.buckets().get(0).uptimeRate()).isEqualTo(0.5);
-        assertThat(trends.buckets().get(1).date()).isEqualTo(java.time.LocalDate.parse("2026-06-08"));
+        assertThat(trends.buckets().get(1).date()).isEqualTo(secondDate);
         assertThat(trends.incidents()).hasSize(2);
         assertThat(trends.incidents().get(0).stationName()).isEqualTo("波动站");
         assertThat(trends.incidents().get(0).failureCount()).isEqualTo(1);
@@ -242,11 +249,12 @@ class ApiStationStatusHistoryServiceTest {
     @Test
     void healthTrendsClampsInputsAndIgnoresChecksForDeletedStations() {
         ApiStation existing = station(11L, "保留站", ApiStation.Status.UP, 90);
+        Instant today = Instant.now().truncatedTo(ChronoUnit.DAYS);
         when(stationRepo.findAll()).thenReturn(List.of(existing));
         List<ApiStationStatusCheck> checks = List.of(
-                trendCheck(11L, 1L, ApiStation.Status.DOWN, null, "2026-06-08T01:00:00Z", "timeout"),
-                trendCheck(99L, 2L, ApiStation.Status.DOWN, null, "2026-06-08T02:00:00Z", "deleted station"),
-                trendCheck(11L, 3L, ApiStation.Status.UP, 110, "2026-06-08T03:00:00Z", null)
+                trendCheck(11L, 1L, ApiStation.Status.DOWN, null, today.plus(1, ChronoUnit.HOURS), "timeout"),
+                trendCheck(99L, 2L, ApiStation.Status.DOWN, null, today.plus(2, ChronoUnit.HOURS), "deleted station"),
+                trendCheck(11L, 3L, ApiStation.Status.UP, 110, today.plus(3, ChronoUnit.HOURS), null)
         );
         when(checkRepo.findByCheckedAtGreaterThanEqualOrderByCheckedAtAsc(any(Instant.class))).thenReturn(checks);
 
@@ -290,9 +298,9 @@ class ApiStationStatusHistoryServiceTest {
         return check;
     }
 
-    private ApiStationStatusCheck trendCheck(Long stationId, Long id, ApiStation.Status status, Integer latencyMs, String checkedAt, String errorMessage) {
+    private ApiStationStatusCheck trendCheck(Long stationId, Long id, ApiStation.Status status, Integer latencyMs, Instant checkedAt, String errorMessage) {
         ApiStationStatusCheck check = checkForStation(stationId, id, status, latencyMs, errorMessage);
-        check.setCheckedAt(Instant.parse(checkedAt));
+        check.setCheckedAt(checkedAt);
         return check;
     }
 }

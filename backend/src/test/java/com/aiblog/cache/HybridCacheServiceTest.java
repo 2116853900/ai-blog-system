@@ -6,6 +6,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,6 +53,47 @@ class HybridCacheServiceTest {
         assertThat(registry.counter("aiblog.cache.events", "event", "loader_load").count()).isEqualTo(1);
         assertThat(registry.counter("aiblog.cache.events", "event", "local_hit").count()).isEqualTo(1);
         assertThat(registry.get("aiblog.cache.local.size").gauge().value()).isEqualTo(1);
+    }
+
+    @Test
+    void concurrentMissesForSameKeyOnlyCallLoaderOnce() throws Exception {
+        int requestCount = 8;
+        ExecutorService executor = Executors.newFixedThreadPool(requestCount);
+        CountDownLatch ready = new CountDownLatch(requestCount);
+        CountDownLatch start = new CountDownLatch(1);
+        AtomicInteger loads = new AtomicInteger();
+        List<Future<String>> results = new ArrayList<>();
+
+        try {
+            for (int i = 0; i < requestCount; i++) {
+                results.add(executor.submit(() -> {
+                    ready.countDown();
+                    start.await();
+                    return cacheService.getOrLoad("public:posts:list", String.class, Duration.ofSeconds(1), () -> {
+                        loads.incrementAndGet();
+                        try {
+                            Thread.sleep(50);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new IllegalStateException(e);
+                        }
+                        return "posts";
+                    });
+                }));
+            }
+
+            assertThat(ready.await(1, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+
+            for (Future<String> result : results) {
+                assertThat(result.get(1, TimeUnit.SECONDS)).isEqualTo("posts");
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertThat(loads).hasValue(1);
+        assertThat(cacheService.localSize()).isEqualTo(1);
     }
 
     @Test

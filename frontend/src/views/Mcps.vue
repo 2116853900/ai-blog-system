@@ -4,12 +4,15 @@ import { publicApi } from '../api'
 import type { Mcp, ResourceTagSummary } from '../api/types'
 import SearchBar from '../components/SearchBar.vue'
 import TagList from '../components/TagList.vue'
+import CommunityRatingBadge from '../components/CommunityRatingBadge.vue'
 import StarRating from '../components/StarRating.vue'
 import StateBlock from '../components/StateBlock.vue'
 import Skeleton from '../components/Skeleton.vue'
 import DetailDrawer from '../components/DetailDrawer.vue'
 import CommentSection from '../components/CommentSection.vue'
 import CopyButton from '../components/CopyButton.vue'
+import ResourceFavoriteButton from '../components/ResourceFavoriteButton.vue'
+import ResourceReviewPanel from '../components/ResourceReviewPanel.vue'
 import { useListView } from '../composables/useListView'
 
 const {
@@ -88,7 +91,10 @@ onMounted(loadPopularTags)
         >
           <div class="item-head">
             <h3 class="mono">{{ m.name }}</h3>
-            <StarRating :level="m.recommendLevel" />
+            <div class="item-ratings">
+              <StarRating :level="m.recommendLevel" />
+              <CommunityRatingBadge :average-rating="m.averageRating" :review-count="m.reviewCount" />
+            </div>
           </div>
           <p class="muted desc">{{ m.description }}</p>
           <div v-if="m.installCmd" class="codeline" @click.stop>
@@ -123,6 +129,10 @@ onMounted(loadPopularTags)
         <a v-if="selected.repoUrl" :href="selected.repoUrl" target="_blank" rel="noopener" class="btn btn-primary d-link">
           查看仓库 ↗
         </a>
+        <div class="resource-actions">
+          <ResourceFavoriteButton ref-type="MCP" :ref-id="selected.id" />
+          <ResourceReviewPanel ref-type="MCP" :ref-id="selected.id" />
+        </div>
         <hr class="d-sep" />
         <CommentSection ref-type="MCP" :ref-id="selected.id" />
       </template>
@@ -148,6 +158,7 @@ onMounted(loadPopularTags)
   padding: 20px; display: flex; flex-direction: column; gap: 10px;
   text-align: left; width: 100%; cursor: pointer; font: inherit; color: inherit;
 }
+.item-ratings { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
 .item-head { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
 .item-head h3 { margin: 0; font-size: 16px; font-weight: 700; }
 .desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -159,5 +170,6 @@ onMounted(loadPopularTags)
 .d-field { margin-bottom: 16px; }
 .d-label { display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; }
 .d-link { margin-top: 16px; }
+.resource-actions { display: grid; gap: 18px; margin-top: 20px; }
 .d-sep { border: none; border-top: 1px dashed var(--border-strong); margin: 24px 0; }
 </style>

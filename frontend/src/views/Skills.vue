@@ -4,11 +4,14 @@ import { publicApi } from '../api'
 import type { ResourceTagSummary, Skill } from '../api/types'
 import SearchBar from '../components/SearchBar.vue'
 import TagList from '../components/TagList.vue'
+import CommunityRatingBadge from '../components/CommunityRatingBadge.vue'
 import StarRating from '../components/StarRating.vue'
 import StateBlock from '../components/StateBlock.vue'
 import Skeleton from '../components/Skeleton.vue'
 import DetailDrawer from '../components/DetailDrawer.vue'
 import CommentSection from '../components/CommentSection.vue'
+import ResourceFavoriteButton from '../components/ResourceFavoriteButton.vue'
+import ResourceReviewPanel from '../components/ResourceReviewPanel.vue'
 import { useListView } from '../composables/useListView'
 
 const {
@@ -87,7 +90,10 @@ onMounted(loadPopularTags)
         >
           <div class="item-head">
             <h3 class="mono">{{ s.name }}</h3>
-            <StarRating :level="s.recommendLevel" />
+            <div class="item-ratings">
+              <StarRating :level="s.recommendLevel" />
+              <CommunityRatingBadge :average-rating="s.averageRating" :review-count="s.reviewCount" />
+            </div>
           </div>
           <p class="muted desc">{{ s.description }}</p>
           <div class="item-foot">
@@ -109,6 +115,10 @@ onMounted(loadPopularTags)
         <a v-if="selected.link" :href="selected.link" target="_blank" rel="noopener" class="btn btn-primary d-link">
           访问 Skill ↗
         </a>
+        <div class="resource-actions">
+          <ResourceFavoriteButton ref-type="SKILL" :ref-id="selected.id" />
+          <ResourceReviewPanel ref-type="SKILL" :ref-id="selected.id" />
+        </div>
         <hr class="d-sep" />
         <CommentSection ref-type="SKILL" :ref-id="selected.id" />
       </template>
@@ -134,6 +144,7 @@ onMounted(loadPopularTags)
   padding: 20px; display: flex; flex-direction: column; gap: 8px;
   text-align: left; width: 100%; cursor: pointer; font: inherit; color: inherit;
 }
+.item-ratings { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
 .item-head { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
 .item-head h3 { margin: 0; font-size: 16px; font-weight: 700; }
 .desc { flex: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
@@ -143,5 +154,6 @@ onMounted(loadPopularTags)
 .d-meta { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .d-desc { line-height: 1.8; margin: 0 0 16px; }
 .d-link { margin-top: 16px; }
+.resource-actions { display: grid; gap: 18px; margin-top: 20px; }
 .d-sep { border: none; border-top: 1px dashed var(--border-strong); margin: 24px 0; }
 </style>

@@ -3,6 +3,8 @@ package com.aiblog.controller;
 import com.aiblog.cache.PublicContentCacheService;
 import com.aiblog.dto.ResourceTagSummaryResponse;
 import com.aiblog.entity.Post;
+import com.aiblog.entity.ResourceReview;
+import com.aiblog.service.ResourceReviewBatchAggregator;
 import com.aiblog.repository.PostRepository;
 import com.aiblog.service.ResourceTagService;
 import com.aiblog.service.SearchSpecs;
@@ -20,11 +22,16 @@ public class PostController {
     private final PostRepository postRepo;
     private final PublicContentCacheService cacheService;
     private final ResourceTagService tagService;
+    private final ResourceReviewBatchAggregator reviewBatch;
 
-    public PostController(PostRepository postRepo, PublicContentCacheService cacheService, ResourceTagService tagService) {
+    public PostController(PostRepository postRepo,
+                          PublicContentCacheService cacheService,
+                          ResourceTagService tagService,
+                          ResourceReviewBatchAggregator reviewBatch) {
         this.postRepo = postRepo;
         this.cacheService = cacheService;
         this.tagService = tagService;
+        this.reviewBatch = reviewBatch;
     }
 
     /** 已发布教程列表（不含正文，减小体积） */
@@ -32,21 +39,23 @@ public class PostController {
     public List<Post> list(@RequestParam(required = false) String q,
                            @RequestParam(required = false) String tag,
                            @RequestParam(required = false) String category) {
-        return cacheService.publicContent(
+        List<Post> posts = cacheService.publicContent(
                 cacheService.postsListKey(q, tag, category),
                 new TypeReference<List<Post>>() {},
                 () -> {
-                    List<Post> posts;
+                    List<Post> loaded;
                     if (hasText(q) || hasText(tag) || hasText(category)) {
                         var spec = SearchSpecs.<Post>build(q, tag, category, List.of("title", "summary", "tags", "category"))
                                 .and((root, query, cb) -> cb.isTrue(root.get("published")));
-                        posts = postRepo.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
+                        loaded = postRepo.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
                     } else {
-                        posts = postRepo.findByPublishedTrueOrderByCreatedAtDesc();
+                        loaded = postRepo.findByPublishedTrueOrderByCreatedAtDesc();
                     }
-                    posts.forEach(p -> p.setBodyMarkdown(null));
-                    return posts;
+                    loaded.forEach(p -> p.setBodyMarkdown(null));
+                    return loaded;
                 });
+        reviewBatch.apply(ResourceReview.RefType.POST, posts);
+        return posts;
     }
 
     @GetMapping("/tags/popular")
